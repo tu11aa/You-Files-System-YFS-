@@ -6,16 +6,13 @@ from message import Message
 import math
 
 def compare_vectors(vector1, vector2):
-    # Kiểm tra số chiều của hai vector
-    if len(vector1) != len(vector2):
-        raise ValueError("Hai vector phải có số chiều bằng nhau")
 
     # Tính độ dài của hai vector
     length_vector1 = math.sqrt(sum([x ** 2 for x in vector1]))
     length_vector2 = math.sqrt(sum([x ** 2 for x in vector2]))
 
     # So sánh độ dài của hai vector
-    return length_vector1 > length_vector2
+    return length_vector1 <= length_vector2
 
 class YFS:
     HOST = '0.0.0.0'
@@ -34,6 +31,29 @@ class YFS:
         self.sock.bind((YFS.HOST, YFS.PORT))
         self.sock.listen(5)
 
+    #send command read and write by SES
+    def send_message_for_SES(self, receiver: int, tPi: list ,message: str, message_type: int):
+
+        #Update self
+        self.timestamps[self.pid] +=1
+        self.vp[receiver] = self.timestamps
+
+        #Update receiver
+        tPi[receiver] += 1
+        for i in range(len(tPi)):
+            if i != receiver:
+                tPi[i] = self.timestamps[i]
+
+        if compare_vectors(self.timestamps, tPi):
+            # Allow to read or write and Alow send 
+            create_package = Message(self.pid, receiver, message,self.timestamps, self.vp, message_type)
+            package = create_package.from_string()
+            #To DO Send message here 
+            print("tm <= tPi")
+        else:
+            print("tm > tPi")
+       
+
     def serve(self):
         while True:
             client_sock, client_addr = self.sock.accept()
@@ -43,20 +63,23 @@ class YFS:
             message = Message.from_string(client_request)
             #to-do
             #SES
-            if self.pid == message.sender:
-                print("Process ", self.pid , " is sender")
-                self.vp[message.receiver] = message.timestamps
-                self.timestamps[self.pid] += 1
+            if message.message_type == 4 or message.message_type == 5:
 
-            elif self.pid == message.receiver:
-                print("Process ", self.pid , "is receiver")
-                self.timestamps[self.pid] += 1
-                if self.pid in message.vp:
-                    self.vp = {k: v for k, v in message.vp if k != self.pid}
+                if self.pid == message.sender:
+                    print("Process ", self.pid , " is sender")
+
+                elif self.pid == message.receiver:
+                    print("Process ", self.pid , "is receiver")
+                    self.timestamps[self.pid] += 1
+                    for i in range(len(self.timestamps)):
+                        if i != self.pid:
+                            self.timestamps[i] = message.timestamps[i]
+                    if self.pid in message.vp:
+                        self.vp = {k: v for k, v in message.vp if k != self.pid}
+                    else:
+                        self.vp = message.vp.copy()
                 else:
-                    self.vp = message.vp.copy()
-            else:
-                print("Process ", self.pid , "is guest")
+                    print("Process ", self.pid , "is guest")
             #
             if client_request == "list_files":
                 files = os.listdir("shared_folder")
