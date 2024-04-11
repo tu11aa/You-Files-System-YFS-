@@ -24,7 +24,15 @@ class Message:
     def from_string(cls, message):
         return Message.from_dict(json.loads(message))
 
-    def __init__(self, sender: str, receiver: str, message: str, timestamps: list, vp: dict, message_type: int) -> None:
+    # def __init__(self, sender: str, receiver: str, message: str, timestamps: list, vp: dict, message_type: int) -> None:
+    #     self.sender = sender
+    #     self.receiver = receiver
+    #     self.message = message
+    #     self.timestamps = timestamps
+    #     self.vp = vp
+    #     self.message_type = message_type
+
+    def __init__(self, sender: int, receiver: int, message: str, timestamps: list, vp: dict, message_type: int) -> None:
         self.sender = sender
         self.receiver = receiver
         self.message = message
@@ -51,5 +59,4 @@ if __name__ == "__main__":
 
     m2 = str(m1)
     m2 = Message.from_string(m2)
-
     #compare m2.timestamp < m1.timestamp
