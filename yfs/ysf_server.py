@@ -35,11 +35,11 @@ class YFS:
     def send_message_for_SES(self, receiver: int, tPi: list ,message: str, message_type: int):
 
         #Update self
-        self.timestamps[self.pid] +=1
+        self.timestamps[self.pid] = datetime.now().timestamp()
         self.vp[receiver] = self.timestamps
 
-        #Update receiver
-        tPi[receiver] += 1
+        #Udate temp
+        tPi[receiver] = datetime.now().timestamp()
         for i in range(len(tPi)):
             if i != receiver:
                 tPi[i] = self.timestamps[i]
@@ -47,9 +47,10 @@ class YFS:
         if compare_vectors(self.timestamps, tPi):
             # Allow to read or write and Alow send 
             create_package = Message(self.pid, receiver, message,self.timestamps, self.vp, message_type)
-            package = create_package.from_string()
+            package = Message.from_string(create_package)
             #To DO Send message here 
             print("tm <= tPi")
+
         else:
             print("tm > tPi")
        
@@ -63,14 +64,13 @@ class YFS:
             message = Message.from_string(client_request)
             #to-do
             #SES
-            if message.message_type == 4 or message.message_type == 5:
-
+            if message.message_type == Message.READ or message.message_type == Message.WRITE:
                 if self.pid == message.sender:
                     print("Process ", self.pid , " is sender")
 
                 elif self.pid == message.receiver:
                     print("Process ", self.pid , "is receiver")
-                    self.timestamps[self.pid] += 1
+                    self.timestamps[self.pid] = datetime.now().timestamp()
                     for i in range(len(self.timestamps)):
                         if i != self.pid:
                             self.timestamps[i] = message.timestamps[i]
