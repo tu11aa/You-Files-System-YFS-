@@ -50,6 +50,7 @@ class YFS:
 
             elif self.pid == message.receiver:
                 print("Process ", self.pid , "is receiver")
+                self.timestamps[self.pid] += 1
                 if self.pid in message.vp:
                     self.vp = {k: v for k, v in message.vp if k != self.pid}
                 else:
