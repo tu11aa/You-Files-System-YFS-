@@ -4,6 +4,7 @@ import socket
 from datetime import datetime
 from message import Message
 import math
+import sys
 
 def is_lesser_vector(vector1, vector2):
 
@@ -122,6 +123,7 @@ class YFS:
                 self.timestamps[i] = timestamps[i]
 
 if __name__ == "__main__":
-    server = YFS(1,5)
+    pid = sys.argv[1]
+    num_of_proccess = sys.argv[2]
+    server = YFS(pid, num_of_proccess)
     server.serve()
-    # print(server.get_mac_address())
