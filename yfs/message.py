@@ -1,13 +1,14 @@
 import json
 
 class Message:
-    BROADCAST = 0
-    BROADCAST_REPONSE = 1
+    #use negative one for response
+    BROADCAST = 1
     GET = 2
     READ = 4
     WRITE = 5
     START_WRITING = 6
     END_WRITING = 7
+    
 
     @classmethod
     def from_dict(cls, message):
@@ -23,14 +24,6 @@ class Message:
     @classmethod
     def from_string(cls, message):
         return Message.from_dict(json.loads(message))
-
-    # def __init__(self, sender: str, receiver: str, message: str, timestamps: list, vp: dict, message_type: int) -> None:
-    #     self.sender = sender
-    #     self.receiver = receiver
-    #     self.message = message
-    #     self.timestamps = timestamps
-    #     self.vp = vp
-    #     self.message_type = message_type
 
     def __init__(self, sender: int, receiver: int, message: str, timestamps: list, vp: dict, message_type: int) -> None:
         self.sender = sender
