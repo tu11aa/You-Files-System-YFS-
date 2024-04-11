@@ -5,7 +5,7 @@ from datetime import datetime
 from message import Message
 import math
 
-def compare_vectors(vector1, vector2):
+def is_lesser_vector(vector1, vector2):
 
     # Tính độ dài của hai vector
     length_vector1 = math.sqrt(sum([x ** 2 for x in vector1]))
@@ -24,36 +24,51 @@ class YFS:
         self.peer_list = {}
         self.vp = {}
         self.timestamps = [datetime.now().timestamp()] * num_of_peer
-        print(self.timestamps)
+        self.queue = []
         self.__main_dir = self.get_main_dir()
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.bind((YFS.HOST, YFS.PORT))
         self.sock.listen(5)
 
-    #send command read and write by SES
-    def send_message_for_SES(self, receiver: int, tPi: list ,message: str, message_type: int):
-
+    def send_SES_message(self, receiver: int, message: str, message_type: int):
         #Update self
         self.timestamps[self.pid] = datetime.now().timestamp()
+
+        #to-do: send message to receiver
+        message = Message(self.pid, receiver, message, self.timestamps, self.vp, message_type)
+
+        #continue update
         self.vp[receiver] = self.timestamps
 
-        #Udate temp
-        tPi[receiver] = datetime.now().timestamp()
-        for i in range(len(tPi)):
-            if i != receiver:
-                tPi[i] = self.timestamps[i]
-
-        if compare_vectors(self.timestamps, tPi):
-            # Allow to read or write and Alow send 
-            create_package = Message(self.pid, receiver, message,self.timestamps, self.vp, message_type)
-            package = Message.from_string(create_package)
-            #To DO Send message here 
-            print("tm <= tPi")
-
+    def receive_SES_message(self, message: Message, queue_check = False):
+        if self.pid not in message.vp:
+            self.__update_timestamps(message.timestamps)
         else:
-            print("tm > tPi")
-       
+            if is_lesser_vector(message.vp[self.pid], self.timestamps):
+                #to-do implement yfs here
+
+
+                self.__update_timestamps(message.timestamps)
+                #update vp
+                self.vp = {k: v for k, v in message.vp.items() if k != self.pid}
+            else:
+                self.queue.append(message)
+                queue_check = True
+
+        #check queue
+        if not queue_check:
+            for m in self.queue:
+                self.receive_SES_message(m, True)
+
+    def send_read(self):
+       self.send_SES_message(1, "", Message.READ)
+
+    def receive_read(self, message:Message):
+        #todo: proccess
+        file_content = "hello"
+
+        self.send_SES_message(1, file_content, -Message.READ)
 
     def serve(self):
         while True:
@@ -64,22 +79,17 @@ class YFS:
             message = Message.from_string(client_request)
             #to-do
             #SES
-            if message.message_type == Message.READ or message.message_type == Message.WRITE:
+            if message.message_type == Message.READ: #or message.message_type == Message.WRITE:
                 if self.pid == message.sender:
                     print("Process ", self.pid , " is sender")
-
                 elif self.pid == message.receiver:
                     print("Process ", self.pid , "is receiver")
-                    self.timestamps[self.pid] = datetime.now().timestamp()
-                    for i in range(len(self.timestamps)):
-                        if i != self.pid:
-                            self.timestamps[i] = message.timestamps[i]
-                    if self.pid in message.vp:
-                        self.vp = {k: v for k, v in message.vp if k != self.pid}
-                    else:
-                        self.vp = message.vp.copy()
+                    self.receive_SES_message(message)
                 else:
                     print("Process ", self.pid , "is guest")
+            elif message.message_type == -Message.READ:
+                #to-do: receive message response
+                pass
             #
             if client_request == "list_files":
                 files = os.listdir("shared_folder")
@@ -104,6 +114,12 @@ class YFS:
 
             self.__main_dir = os.path.join(storage_path, self.get_mac_address())
             return self.__main_dir
+
+    def __update_timestamps(self, timestamps):
+        self.timestamps[self.pid] = datetime.now().timestamp()
+        for i in range(len(self.timestamps)):
+            if i != self.pid:
+                self.timestamps[i] = timestamps[i]
 
 if __name__ == "__main__":
     server = YFS(1,5)
