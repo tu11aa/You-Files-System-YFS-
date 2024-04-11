@@ -27,9 +27,9 @@ class YFS:
         self.queue = []
         self.__main_dir = self.get_main_dir()
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.bind((YFS.HOST, YFS.PORT))
-        self.sock.listen(5)
+        self.receiver = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.receiver.bind((YFS.HOST, YFS.PORT))
+        self.receiver.listen(5)
 
     def send_SES_message(self, receiver: int, message: str, message_type: int):
         #Update self
@@ -72,7 +72,7 @@ class YFS:
 
     def serve(self):
         while True:
-            client_sock, client_addr = self.sock.accept()
+            client_sock, client_addr = self.receiver.accept()
             print(f"Connection from {client_addr}")
 
             client_request = client_sock.recv(1024).decode("utf-8")
