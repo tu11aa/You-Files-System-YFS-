@@ -65,9 +65,9 @@ class YFS:
                 self.receive_SES_message(m, True)
 
     def send_read(self, recive: int, message: str):
-       command_read = "Read File" + recive # Read File0
-       
-       if message in command_read:
+       command_read = "Read File"
+
+       if command_read in message :
            print("Send read file successfully")
            self.send_SES_message(recive, message, Message.READ)
        else:
@@ -77,12 +77,12 @@ class YFS:
     def receive_read(self, message: Message):
         ## Read file request of sender
         content_file = self.read_file(message.receiver)
-        if  self.check_yourself(message) == 1: ## Check yourself is receiver
+        if  self.check_yourself(message) == 1 : ## Check yourself is receiver 
             if message.message_type == Message.READ:
                 ## Send respond for sender
                 self.send_SES_message(message.sender, content_file, -Message.READ)
-            else:
-                ## sender receive of receiver and print content of file
+            elif message.message_type == - Message.READ:
+                ## sender receive respond_receiver and print content of file
                 print(message.message)
     
 
