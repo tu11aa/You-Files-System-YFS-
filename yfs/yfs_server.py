@@ -6,6 +6,7 @@ from datetime import datetime
 from message import Message
 import os
 import math
+import sys
 
 def is_lesser_vector(vector1, vector2):
 
@@ -29,9 +30,9 @@ class YFS:
         self.queue = []
         self.__main_dir = self.get_main_dir()
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.bind((YFS.HOST, YFS.PORT))
-        self.sock.listen(5)
+        self.receiver = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.receiver.bind((YFS.HOST, YFS.PORT))
+        self.receiver.listen(5)
 
     def send_SES_message(self, receiver: int, message: str, message_type: int):
         #Update self
@@ -87,7 +88,7 @@ class YFS:
 
     def serve(self):
         while True:
-            client_sock, client_addr = self.sock.accept()
+            client_sock, client_addr = self.receiver.accept()
             print(f"Connection from {client_addr}")
 
             client_request = client_sock.recv(1024).decode("utf-8")
@@ -159,6 +160,7 @@ class YFS:
             return 2
         
 if __name__ == "__main__":
-    server = YFS(1,5)
+    pid = sys.argv[1]
+    num_of_proccess = sys.argv[2]
+    server = YFS(pid, num_of_proccess)
     server.serve()
-    # print(server.get_mac_address())
