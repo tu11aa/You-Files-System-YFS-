@@ -1,8 +1,10 @@
 import os
+from subprocess import check_call
 import uuid
 import socket
 from datetime import datetime
 from message import Message
+import os
 import math
 
 def is_lesser_vector(vector1, vector2):
@@ -61,14 +63,27 @@ class YFS:
             for m in self.queue:
                 self.receive_SES_message(m, True)
 
-    def send_read(self):
-       self.send_SES_message(1, "", Message.READ)
+    def send_read(self, recive: int, message: str):
+       command_read = "Read File" + recive # Read File0
+       
+       if message in command_read:
+           print("Send read file successfully")
+           self.send_SES_message(recive, message, Message.READ)
+       else:
+           print("Wrong commad")
 
-    def receive_read(self, message:Message):
-        #todo: proccess
-        file_content = "hello"
-
-        self.send_SES_message(1, file_content, -Message.READ)
+        
+    def receive_read(self, message: Message):
+        ## Read file request of sender
+        content_file = self.read_file(message.receiver)
+        if  self.check_yourself(message) == 1: ## Check yourself is receiver
+            if message.message_type == Message.READ:
+                ## Send respond for sender
+                self.send_SES_message(message.sender, content_file, -Message.READ)
+            else:
+                ## sender receive of receiver and print content of file
+                print(message.message)
+    
 
     def serve(self):
         while True:
@@ -121,6 +136,28 @@ class YFS:
             if i != self.pid:
                 self.timestamps[i] = timestamps[i]
 
+    def read_file(pID: int):
+            base_path = r"C:\Users\ThisPC\Desktop\You-Files-System-YFS-"
+            relative_path = r"\\yfs\\Dir{}\\Peer{}\\{}.txt".format(pID, pID, pID)
+            file_path = base_path + relative_path
+
+            try:
+                with open(file_path, "r") as file:
+                    content_file = file.read()
+                    print(content_file)
+            except FileNotFoundError:
+                print("File is exist or cant read")
+            except Exception as e:
+                print("Error", str(e))
+
+    def check_yourself(self, message: Message):
+        if self.pid == message.sender:
+            return 0
+        elif self.pid == message.receiver:
+            return 1
+        else:
+            return 2
+        
 if __name__ == "__main__":
     server = YFS(1,5)
     server.serve()
