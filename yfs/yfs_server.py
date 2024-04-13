@@ -123,7 +123,7 @@ class YFS:
                 self.timestamps[i] = timestamps[i]
 
 if __name__ == "__main__":
-    pid = sys.argv[1]
-    num_of_proccess = sys.argv[2]
+    pid = int(sys.argv[1])
+    num_of_proccess = int(sys.argv[2])
     server = YFS(pid, num_of_proccess)
     server.serve()
