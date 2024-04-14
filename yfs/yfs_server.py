@@ -64,16 +64,14 @@ class YFS:
             for m in self.queue:
                 self.receive_SES_message(m, True)
 
-    def send_read(self, recive: int, message: str):
+    def send_read(self, recive: int, user_command: str):
        command_read = "Read File"
-
-       if command_read in message :
+       if command_read in user_command :
            print("Send read file successfully")
-           self.send_SES_message(recive, message, Message.READ)
+           self.send_SES_message(recive, user_command, Message.READ)
        else:
            print("Wrong commad")
 
-        
     def receive_read(self, message: Message):
         ## Read file request of sender
         content_file = self.read_file(message.receiver)
@@ -85,6 +83,33 @@ class YFS:
                 ## sender receive respond_receiver and print content of file
                 print(message.message)
     
+    def send_write(self, recive: int, user_command: str):
+        command_read = "Write File" + str(recive) + " "
+        index = user_command.find(command_read)
+        message = ""
+        if index != -1:
+            message = user_command[index + len(command_read):]
+        else:
+            print("Wrong commad")
+
+        if command_read in user_command :
+            print("Send read file successfully")
+            self.send_SES_message(recive, message, Message.WRITE)
+        else:
+            print("Wrong commad")
+
+    def receive_write(self, message: Message):
+        if  self.check_yourself(message) == 1 : ## Check yourself is receiver 
+            if message.message_type == Message.READ:
+                ## Send respond for sender
+                self.write_file(self.pid, message.message)
+                message_response = "Write file successfully"
+                self.send_SES_message(message.sender,message_response, -Message.READ)
+            elif message.message_type == - Message.READ:
+                ## sender receive respond_receiver and print content of file
+                print(message.message)
+        elif self.check_yourself(message) == 2: ## Check yourself is guest
+            print("This file is an old version")
 
     def serve(self):
         while True:
@@ -138,10 +163,10 @@ class YFS:
                 self.timestamps[i] = timestamps[i]
 
     def read_file(pID: int):
+            # we need fix path file
             base_path = r"C:\Users\ThisPC\Desktop\You-Files-System-YFS-"
             relative_path = r"\\yfs\\Dir{}\\Peer{}\\{}.txt".format(pID, pID, pID)
             file_path = base_path + relative_path
-
             try:
                 with open(file_path, "r") as file:
                     content_file = file.read()
@@ -150,6 +175,19 @@ class YFS:
                 print("File is exist or cant read")
             except Exception as e:
                 print("Error", str(e))
+    
+    def write_file(pID: int, message: str):
+         # we need fix path file
+        base_path = r"C:\Users\ThisPC\Desktop\You-Files-System-YFS-"
+        relative_path = r"\\yfs\\Dir{}\\Peer{}\\{}.txt".format(pID, pID, pID)
+        file_path = base_path + relative_path
+        
+        try:
+            with open(file_path, "a") as file:
+                file.write(message + "\n") 
+            print("Write file successsfully.")
+        except IOError:
+            print("Error: Can`t write file.")
 
     def check_yourself(self, message: Message):
         if self.pid == message.sender:
