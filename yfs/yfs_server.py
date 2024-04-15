@@ -163,18 +163,18 @@ class YFS:
                 self.timestamps[i] = timestamps[i]
 
     def read_file(pID: int):
-            # we need fix path file
-            base_path = r"C:\Users\ThisPC\Desktop\You-Files-System-YFS-"
-            relative_path = r"\\yfs\\Dir{}\\Peer{}\\{}.txt".format(pID, pID, pID)
-            file_path = base_path + relative_path
-            try:
-                with open(file_path, "r") as file:
-                    content_file = file.read()
-                    print(content_file)
-            except FileNotFoundError:
-                print("File is exist or cant read")
-            except Exception as e:
-                print("Error", str(e))
+        # we need fix path file
+        base_path = r"C:\Users\ThisPC\Desktop\You-Files-System-YFS-"
+        relative_path = r"\\yfs\\Dir{}\\Peer{}\\{}.txt".format(pID, pID, pID)
+        file_path = base_path + relative_path
+        try:
+            with open(file_path, "r") as file:
+                content_file = file.read()
+                print(content_file)
+        except FileNotFoundError:
+            print("File is exist or cant read")
+        except Exception as e:
+            print("Error", str(e))
     
     def write_file(pID: int, message: str):
          # we need fix path file
