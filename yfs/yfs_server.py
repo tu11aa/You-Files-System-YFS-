@@ -1,6 +1,4 @@
 import os
-from subprocess import check_call
-import uuid
 import socket
 from datetime import datetime
 from message import Message
@@ -137,13 +135,6 @@ class YFS:
                 file_str = "\n".join(files)
                 client_sock.sendall(file_str.encode("utf-8"))
             client_sock.close()
-        
-    def get_mac_address(self):
-        try:
-            return self.__mac_address
-        except AttributeError:
-            self.__mac_address = (':'.join(['{:02x}'.format((uuid.getnode() >> ele) & 0xff) for ele in range(0,8*6,8)][::-1]))
-            return self.__mac_address
         
     def get_main_dir(self):
         try:
