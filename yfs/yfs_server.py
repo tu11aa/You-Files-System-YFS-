@@ -15,6 +15,20 @@ def is_lesser_vector(vector1, vector2):
     # So sánh độ dài của hai vector
     return length_vector1 <= length_vector2
 
+class YFSLogger:
+    def __init__(self) -> None:
+        self.log_file = "log.log"
+
+    def command_as_string(self, command):
+        if command == Message.READ:
+            command = "READ"
+        elif command == Message.WRITE:
+            command = "WRITE"
+
+    def log(self, command, result):
+        timestamp = datetime.now()
+        print(f"{timestamp}: [{self.command_as_string(command)} {result}]")
+
 class YFS:
     HOST = '0.0.0.0'
     PORT = 8080
@@ -27,6 +41,9 @@ class YFS:
         self.timestamps = [datetime.now().timestamp()] * num_of_peer
         self.queue = []
         self.__main_dir = self.get_main_dir()
+        self.logger = YFSLogger()
+
+        self.readers = []
 
         self.receiver = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.receiver.bind((YFS.HOST, YFS.PORT))
@@ -43,12 +60,17 @@ class YFS:
         self.vp[receiver] = self.timestamps
 
     def receive_SES_message(self, message: Message, queue_check = False):
+        self.logger.log(message.message, 0) # magic number for result
+
         if self.pid not in message.vp:
             self.__update_timestamps(message.timestamps)
         else:
             if is_lesser_vector(message.vp[self.pid], self.timestamps):
                 #to-do implement yfs here
-
+                if message.message_type == Message.READ:
+                    self.receive_read(message)
+                if message.message_type == Message.WRITE:
+                    self.receive_write(message)
 
                 self.__update_timestamps(message.timestamps)
                 #update vp
@@ -62,24 +84,24 @@ class YFS:
             for m in self.queue:
                 self.receive_SES_message(m, True)
 
-    def send_read(self, recive: int, user_command: str):
-       command_read = "Read File"
-       if command_read in user_command :
-           print("Send read file successfully")
-           self.send_SES_message(recive, user_command, Message.READ)
-       else:
-           print("Wrong commad")
+    def send_read(self, reciver: int):
+        self.send_SES_message(reciver, "", Message.READ)
+        print("Send read file successfully")
 
     def receive_read(self, message: Message):
-        ## Read file request of sender
-        content_file = self.read_file(message.receiver)
-        if  self.check_yourself(message) == 1 : ## Check yourself is receiver 
-            if message.message_type == Message.READ:
+        if self.check_yourself(message) == 1 : ## Check yourself is receiver 
+            if message.message_type == Message.READ:    
+                ## Read file request of sender
+                file_content = self.read_file(self.pid)
                 ## Send respond for sender
-                self.send_SES_message(message.sender, content_file, -Message.READ)
-            elif message.message_type == - Message.READ:
+                self.send_SES_message(message.sender, file_content, -Message.READ)
+            elif message.message_type == -Message.READ:
                 ## sender receive respond_receiver and print content of file
+                print(f"Received file from {message.sender}")
+                print("Content:")
                 print(message.message)
+
+                self.write_file(message.sender, message.message)
     
     def send_write(self, recive: int, user_command: str):
         command_read = "Write File" + str(recive) + " "
@@ -98,12 +120,13 @@ class YFS:
 
     def receive_write(self, message: Message):
         if  self.check_yourself(message) == 1 : ## Check yourself is receiver 
-            if message.message_type == Message.READ:
-                ## Send respond for sender
+            if message.message_type == Message.WRITE:
+                ## need except handler here
                 self.write_file(self.pid, message.message)
                 message_response = "Write file successfully"
-                self.send_SES_message(message.sender,message_response, -Message.READ)
-            elif message.message_type == - Message.READ:
+                ## Send respond for sender
+                self.send_SES_message(message.sender,message_response, -Message.WRITE)
+            elif message.message_type == - Message.WRITE:
                 ## sender receive respond_receiver and print content of file
                 print(message.message)
         elif self.check_yourself(message) == 2: ## Check yourself is guest
@@ -118,17 +141,18 @@ class YFS:
             message = Message.from_string(client_request)
             #to-do
             #SES
-            if message.message_type == Message.READ: #or message.message_type == Message.WRITE:
-                if self.pid == message.sender:
-                    print("Process ", self.pid , " is sender")
-                elif self.pid == message.receiver:
-                    print("Process ", self.pid , "is receiver")
-                    self.receive_SES_message(message)
-                else:
-                    print("Process ", self.pid , "is guest")
-            elif message.message_type == -Message.READ:
+            if message.message_type >= 0:
+                self.receive_SES_message(message)
+            else:
                 #to-do: receive message response
-                pass
+                if message.message_type == -Message.READ:
+                    self.receive_read(message)
+                if message.message_type == -Message.WRITE:
+                    self.receive_write(message)
+                if message.message_type == -Message.GET:
+                    pass
+                if message.message_type == -Message.BROADCAST:
+                    pass
             #
             if client_request == "list_files":
                 files = os.listdir("shared_folder")
@@ -140,11 +164,11 @@ class YFS:
         try:
             return self.__main_dir
         except AttributeError:
-            storage_path = os.path.join(os.curdir, f"Dir{self.pid}")
-            if not os.path.exists(storage_path):
-                os.makedirs(storage_path)
+            main_path = os.path.join(os.curdir, f"Dir{self.pid}")
+            if not os.path.exists(main_path):
+                os.makedirs(main_path)
 
-            self.__main_dir = os.path.join(storage_path, self.get_mac_address())
+            self.__main_dir = main_path
             return self.__main_dir
 
     def __update_timestamps(self, timestamps):
@@ -153,32 +177,27 @@ class YFS:
             if i != self.pid:
                 self.timestamps[i] = timestamps[i]
 
-    def read_file(pID: int):
-        # we need fix path file
-        base_path = r"C:\Users\ThisPC\Desktop\You-Files-System-YFS-"
-        relative_path = r"\\yfs\\Dir{}\\Peer{}\\{}.txt".format(pID, pID, pID)
-        file_path = base_path + relative_path
+    def read_file(self, pID: int):
+        file_path = os.path.join(self.__main_dir, f'Peer{pID}', f'{pID}.txt')
+
         try:
             with open(file_path, "r") as file:
-                content_file = file.read()
-                print(content_file)
+                file_content = file.read()
+                return file_content
         except FileNotFoundError:
-            print("File is exist or cant read")
+            print("File is not exist or can not read")
         except Exception as e:
             print("Error", str(e))
     
-    def write_file(pID: int, message: str):
-         # we need fix path file
-        base_path = r"C:\Users\ThisPC\Desktop\You-Files-System-YFS-"
-        relative_path = r"\\yfs\\Dir{}\\Peer{}\\{}.txt".format(pID, pID, pID)
-        file_path = base_path + relative_path
+    def write_file(self, pID: int, message: str):
+        file_path = os.path.join(self.__main_dir, f'Peer{pID}', f'{pID}.txt')
         
         try:
-            with open(file_path, "a") as file:
+            with open(file_path, "w") as file:
                 file.write(message + "\n") 
             print("Write file successsfully.")
         except IOError:
-            print("Error: Can`t write file.")
+            print("Error: Can not write file.")
 
     def check_yourself(self, message: Message):
         if self.pid == message.sender:
@@ -192,4 +211,4 @@ if __name__ == "__main__":
     pid = int(sys.argv[1])
     num_of_proccess = int(sys.argv[2])
     server = YFS(pid, num_of_proccess)
-    server.serve()
+    server.write_file(1, "kjafhkjsdhf")
