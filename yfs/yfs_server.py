@@ -5,7 +5,6 @@ from message import Message
 import threading
 import math
 import sys
-from time import sleep
 
 def is_lesser_vector(vector1, vector2):
 
