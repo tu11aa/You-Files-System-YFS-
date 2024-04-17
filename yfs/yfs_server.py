@@ -2,9 +2,10 @@ import os
 import socket
 from datetime import datetime
 from message import Message
-import os
+import threading
 import math
 import sys
+from time import sleep
 
 def is_lesser_vector(vector1, vector2):
 
@@ -21,13 +22,24 @@ class YFSLogger:
 
     def command_as_string(self, command):
         if command == Message.READ:
-            command = "READ"
-        elif command == Message.WRITE:
-            command = "WRITE"
+            return "READ"
+        if command == Message.WRITE:
+            return "WRITE"
+        if command == Message.BROADCAST:
+            return "BROADCAST"
+        if command == Message.START_WRITING:
+            return "START_WRITING"
+        if command == Message.END_WRITING:
+            return "END_WRITING"
+        if command == Message.GET:
+            return "GET"
 
     def log(self, command, result):
         timestamp = datetime.now()
-        print(f"{timestamp}: [{self.command_as_string(command)} {result}]")
+        message = f"{timestamp}: [{self.command_as_string(command)}] {result}\n"
+        print(message)
+        with open(self.log_file, "a") as f:
+            f.write(message)
 
 class YFS:
     HOST = '0.0.0.0'
@@ -36,7 +48,7 @@ class YFS:
     def __init__(self, pid: int, num_of_peer: int) -> None:
         self.pid = pid
         self.num_of_peer = num_of_peer
-        self.peer_list = {}
+        self.peer_to_address = {}
         self.vp = {}
         self.timestamps = [datetime.now().timestamp()] * num_of_peer
         self.queue = []
@@ -45,9 +57,13 @@ class YFS:
 
         self.readers = []
 
-        self.receiver = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.receiver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.receiver.bind((YFS.HOST, YFS.PORT))
-        self.receiver.listen(5)
+        # self.receiver.listen(5)
+
+        self.sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sender.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        self.send_SES_message(-1, socket.gethostbyname(socket.gethostname()), Message.BROADCAST)
 
     def send_SES_message(self, receiver: int, message: str, message_type: int):
         #Update self
@@ -55,6 +71,11 @@ class YFS:
 
         #to-do: send message to receiver
         message = Message(self.pid, receiver, message, self.timestamps, self.vp, message_type)
+        if (message_type == Message.BROADCAST):
+            address = ('<broadcast>', YFS.PORT)
+        else:
+            address = (self.peer_to_address[receiver], YFS.PORT)
+        self.sender.sendto(str(message).encode(), address)
 
         #continue update
         self.vp[receiver] = self.timestamps
@@ -134,11 +155,11 @@ class YFS:
 
     def serve(self):
         while True:
-            client_sock, client_addr = self.receiver.accept()
-            print(f"Connection from {client_addr}")
+            # client_sock, client_addr = self.receiver.accept()
 
-            client_request = client_sock.recv(1024).decode("utf-8")
-            message = Message.from_string(client_request)
+            client_request, client_address = self.receiver.recvfrom(1024)
+            print(f"Connection from {client_address}")
+            message = Message.from_string(client_request.decode("utf-8"))
             #to-do
             #SES
             if message.message_type >= 0:
@@ -154,11 +175,11 @@ class YFS:
                 if message.message_type == -Message.BROADCAST:
                     pass
             #
-            if client_request == "list_files":
-                files = os.listdir("shared_folder")
-                file_str = "\n".join(files)
-                client_sock.sendall(file_str.encode("utf-8"))
-            client_sock.close()
+            # if client_request == "list_files":
+            #     files = os.listdir("shared_folder")
+            #     file_str = "\n".join(files)
+            #     client_sock.sendall(file_str.encode("utf-8"))
+            # client_sock.close()
         
     def get_main_dir(self):
         try:
@@ -195,9 +216,9 @@ class YFS:
         try:
             with open(file_path, "w") as file:
                 file.write(message + "\n") 
-            print("Write file successsfully.")
+            self.logger.log(Message.WRITE, "Write file successsfully.")
         except IOError:
-            print("Error: Can not write file.")
+            self.logger.log(Message.WRITE, "Error: Can not write file.")
 
     def check_yourself(self, message: Message):
         if self.pid == message.sender:
@@ -207,8 +228,23 @@ class YFS:
         else:
             return 2
         
+def user_interface(yfs: YFS):
+    while True:
+        user_commands = input("Input command: ").split()
+        command = user_commands[0].lower()
+        arg = user_commands[1]
+        if command == "exit":
+            return
+        if command == "write":
+            yfs.write_file(0, "test write file 0")
+        
 if __name__ == "__main__":
     pid = int(sys.argv[1])
     num_of_proccess = int(sys.argv[2])
     server = YFS(pid, num_of_proccess)
-    server.write_file(1, "kjafhkjsdhf")
+    
+    server_thread = threading.Thread(target=server.serve)
+    user_interface_thread = threading.Thread(target=user_interface, args=(server,))
+
+    server_thread.start()
+    user_interface_thread.start()
