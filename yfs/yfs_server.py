@@ -30,8 +30,6 @@ class YFS:
         self.__main_dir = self.get_main_dir()
         self.logger = YFSLogger()
 
-        self.readers = []
-
         self.receiver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.receiver.bind((YFS.HOST, YFS.PORT))
         # self.receiver.listen(5)
