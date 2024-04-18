@@ -101,8 +101,8 @@ class YFS:
 
                 self.write_file(message.sender, message.message)
     
-    def send_write(self, recive: int, message: str):  
-        self.send_SES_message(recive, message, MessageType.WRITE)
+    def send_write(self, reciver: int, message: str):  
+        self.send_SES_message(reciver, message, MessageType.WRITE)
         print("Send read file successfully")
 
 
@@ -120,18 +120,18 @@ class YFS:
         elif self.check_yourself(message) == 2: ## Check yourself is guest
             print("This file is an old version")
 
-    def send_start_write(self, recive: int):
+    def send_start_write(self, reciver: int):
         message = "Start Write"
-        self.send_SES_message(recive, message, MessageType.START_WRITING)
+        self.send_SES_message(reciver, message, MessageType.START_WRITING)
     
     def receive_start_write(self, message: Message):
         if self.check_yourself(message) == 2 or self.check_yourself(message) == 0: #check yourself is guest or sender
             if message.message_type == MessageType.START_WRITING:
                 print("This file is an old version")
 
-    def send_end_write(self, recive: int):
+    def send_end_write(self, reciver: int):
         message = "End Write"
-        self.send_SES_message(recive, message, MessageType.END_WRITING)
+        self.send_SES_message(reciver, message, MessageType.END_WRITING)
 
     def receive_end_write(self, message: Message):
         if self.check_yourself(message) == 2 or self.check_yourself(message) == 0: #check yourself is guest or sender
@@ -213,7 +213,7 @@ class YFS:
         else:
             return 2
         
-def user_interface(yfs: YFS):
+def user_interface(yfs: YFS): 
     while True:
         user_commands = input("Input command: ").split()
         command = user_commands[0].lower()
