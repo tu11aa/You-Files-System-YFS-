@@ -1,8 +1,12 @@
 import sys
-from time import sleep
 
 if __name__ == "__main__":
     pid = int(sys.argv[1])
-    for i in range(100):
-        print(f"{pid}: {i}")
-        sleep(pid)
+    
+    while True:
+        user_command = input("Input command")
+
+        print(f"Command {user_command} from [PID {pid}]")
+
+        if (user_command.lower() == "exit"):
+            break
