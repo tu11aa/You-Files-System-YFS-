@@ -219,6 +219,10 @@ class YFS:
         
 def user_interface(yfs: YFS): 
     while True:
+        print("Menu:")
+        print("1. Read File + [pID]")
+        print("2. Write File + [pID] + [content]")
+        print("3. Exit")
         user_commands = input("Input command: ").split()
         command = user_commands[0].lower()
         arg = int(user_commands[1][-1])
@@ -243,10 +247,6 @@ def user_interface(yfs: YFS):
             print("Content:", content)
         
 if __name__ == "__main__":
-    print("Menu:")
-    print("1. Read File + [pID]")
-    print("2. Write File + [pID] + [content]")
-    print("3. Exit")
 
     pid = int(sys.argv[1])
     server = YFS(pid)
