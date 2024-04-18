@@ -1,9 +1,7 @@
 import os
 import socket
 from datetime import datetime
-import threading
 import math
-import sys
 
 from message import Message, MessageType
 from yfs_logger import YFSLogger
@@ -56,7 +54,7 @@ class YFS:
         self.vp[receiver] = self.timestamps
 
     def receive_SES_message(self, message: Message, queue_check = False):
-        self.logger.log(message.message, 0) # magic number for result
+        # self.logger.log(message.message_type, 0) # magic number for result
 
         if self.pid not in message.vp:
             self.__update_timestamps(message.timestamps)
@@ -79,10 +77,10 @@ class YFS:
         if not queue_check:
             for m in self.queue:
                 self.receive_SES_message(m, True)
-
+                
     def send_read(self, reciver: int):
         self.send_SES_message(reciver, "", MessageType.READ)
-        print("Send read file successfully")
+        self.logger.log(MessageType.READ, f"Sent to {reciver} successfully")
 
     def receive_read(self, message: Message):
         if self.check_yourself(message) == 1 : ## Check yourself is receiver 
@@ -93,7 +91,7 @@ class YFS:
                 self.send_SES_message(message.sender, file_content, -MessageType.READ)
             elif message.message_type == -MessageType.READ:
                 ## sender receive respond_receiver and print content of file
-                print(f"Received file from {message.sender}")
+                self.logger.log(-MessageType.READ, f"Received file from {message.sender}")
                 print("Content:")
                 print(message.message)
 
@@ -216,43 +214,3 @@ class YFS:
             return 1
         else:
             return 2
-        
-def user_interface(yfs: YFS): 
-    while True:
-        print("Menu:")
-        print("1. Read File + [pID]")
-        print("2. Write File + [pID] + [content]")
-        print("3. Exit")
-        user_commands = input("Input command: ").split()
-        command = user_commands[0].lower()
-        arg = int(user_commands[1][-1])
-
-        if command == "exit":
-            return
-        
-        if command == "write":
-            if len(user_commands) > 2:
-                content = user_commands[2]
-                yfs.write_file(arg, content)
-                #Error
-                #yfs.send_write(arg, content)
-                print("Send Write")
-            else:
-                print("Command is incorrect")
-
-        if command == "read":
-            #Error
-            #yfs.send_read(arg)
-            content = yfs.read_file(arg)
-            print("Content:", content)
-        
-if __name__ == "__main__":
-
-    pid = int(sys.argv[1])
-    server = YFS(pid)
-    
-    server_thread = threading.Thread(target=server.serve)
-    user_interface_thread = threading.Thread(target=user_interface, args=(server,))
-
-    server_thread.start()
-    user_interface_thread.start()
