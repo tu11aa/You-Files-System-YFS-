@@ -1,10 +1,12 @@
 import os
 import socket
 from datetime import datetime
-from message import Message, MessageType
 import threading
 import math
 import sys
+
+from message import Message, MessageType
+from yfs_logger import YFSLogger
 
 def is_lesser_vector(vector1, vector2):
 
@@ -14,32 +16,6 @@ def is_lesser_vector(vector1, vector2):
 
     # So sánh độ dài của hai vector
     return length_vector1 <= length_vector2
-
-class YFSLogger:
-    def __init__(self, file_name = "log.log") -> None:
-        self.log_file = file_name
-
-    @classmethod
-    def command_as_string(self, command):
-        if command == MessageType.READ:
-            return "READ"
-        if command == MessageType.WRITE:
-            return "WRITE"
-        if command == MessageType.BROADCAST:
-            return "BROADCAST"
-        if command == MessageType.START_WRITING:
-            return "START_WRITING"
-        if command == MessageType.END_WRITING:
-            return "END_WRITING"
-        if command == MessageType.GET:
-            return "GET"
-
-    def log(self, command, result):
-        timestamp = datetime.now()
-        message = f"{timestamp}: [{YFSLogger.command_as_string(command)}] {result}\n"
-        print(message)
-        with open(self.log_file, "a") as f:
-            f.write(message)
 
 class YFS:
     HOST = '0.0.0.0'
