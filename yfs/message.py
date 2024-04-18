@@ -3,7 +3,7 @@ import json
 class MessageType:
     #use negative one for response
     BROADCAST = 1
-    GET = 2
+    MOUNT = 2
     READ = 4
     WRITE = 5
     START_WRITING = 6

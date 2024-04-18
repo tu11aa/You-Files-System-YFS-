@@ -22,8 +22,8 @@ class YFSLogger:
             result = "START_WRITING"
         elif command == MessageType.END_WRITING:
             result = "END_WRITING"
-        elif command == MessageType.GET:
-            result = "GET"
+        elif command == MessageType.MOUNT:
+            result = "MOUNT"
         return response + result
 
     def log(self, command, result):
