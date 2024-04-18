@@ -20,19 +20,21 @@ class Message:
             message["timestamps"],
             message["vp"],
             message["message_type"],
+            message["status"]
         )
     
     @classmethod
     def from_string(cls, message):
         return Message.from_dict(json.loads(message))
 
-    def __init__(self, sender: int, receiver: int, message: str, timestamps: list, vp: dict, message_type: int) -> None:
+    def __init__(self, sender: int, receiver: int, message: str, timestamps: list, vp: dict, message_type: int, status: bool = True) -> None:
         self.sender = sender
         self.receiver = receiver
         self.message = message
         self.timestamps = timestamps
         self.vp = vp
         self.message_type = message_type
+        self.status = status
 
     def __str__(self) -> str:
         return json.dumps(self.__dict__)
