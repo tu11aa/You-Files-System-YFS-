@@ -1,10 +1,12 @@
 import os
 import socket
 from datetime import datetime
-from message import Message
 import threading
 import math
 import sys
+
+from message import Message, MessageType
+from yfs_logger import YFSLogger
 
 def is_lesser_vector(vector1, vector2):
 
@@ -15,41 +17,15 @@ def is_lesser_vector(vector1, vector2):
     # So sánh độ dài của hai vector
     return length_vector1 <= length_vector2
 
-class YFSLogger:
-    def __init__(self) -> None:
-        self.log_file = "log.log"
-
-    def command_as_string(self, command):
-        if command == Message.READ:
-            return "READ"
-        if command == Message.WRITE:
-            return "WRITE"
-        if command == Message.BROADCAST:
-            return "BROADCAST"
-        if command == Message.START_WRITING:
-            return "START_WRITING"
-        if command == Message.END_WRITING:
-            return "END_WRITING"
-        if command == Message.GET:
-            return "GET"
-
-    def log(self, command, result):
-        timestamp = datetime.now()
-        message = f"{timestamp}: [{self.command_as_string(command)}] {result}\n"
-        print(message)
-        with open(self.log_file, "a") as f:
-            f.write(message)
-
 class YFS:
     HOST = '0.0.0.0'
     PORT = 8080
 
-    def __init__(self, pid: int, num_of_peer: int) -> None:
+    def __init__(self, pid: int) -> None:
         self.pid = pid
-        self.num_of_peer = num_of_peer
         self.peer_to_address = {}
         self.vp = {}
-        self.timestamps = [datetime.now().timestamp()] * num_of_peer
+        self.timestamps = [datetime.now().timestamp()]
         self.queue = []
         self.__main_dir = self.get_main_dir()
         self.logger = YFSLogger()
@@ -62,7 +38,7 @@ class YFS:
 
         self.sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sender.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.send_SES_message(-1, socket.gethostbyname(socket.gethostname()), Message.BROADCAST)
+        self.send_SES_message(-1, socket.gethostbyname(socket.gethostname()), MessageType.BROADCAST)
 
     def send_SES_message(self, receiver: int, message: str, message_type: int):
         #Update self
@@ -70,11 +46,13 @@ class YFS:
 
         #to-do: send message to receiver
         message = Message(self.pid, receiver, message, self.timestamps, self.vp, message_type)
-        if (message_type == Message.BROADCAST):
+        if (message_type == MessageType.BROADCAST):
             address = ('<broadcast>', YFS.PORT)
         else:
             address = (self.peer_to_address[receiver], YFS.PORT)
         self.sender.sendto(str(message).encode(), address)
+
+        self.logger.log(message_type, f"Sent content: \"{message}\" to {receiver}")
 
         #continue update
         self.vp[receiver] = self.timestamps
@@ -87,9 +65,9 @@ class YFS:
         else:
             if is_lesser_vector(message.vp[self.pid], self.timestamps):
                 #to-do implement yfs here
-                if message.message_type == Message.READ:
+                if message.message_type == MessageType.READ:
                     self.receive_read(message)
-                if message.message_type == Message.WRITE:
+                if message.message_type == MessageType.WRITE:
                     self.receive_write(message)
 
                 self.__update_timestamps(message.timestamps)
@@ -105,17 +83,17 @@ class YFS:
                 self.receive_SES_message(m, True)
 
     def send_read(self, reciver: int):
-        self.send_SES_message(reciver, "", Message.READ)
+        self.send_SES_message(reciver, "", MessageType.READ)
         print("Send read file successfully")
 
     def receive_read(self, message: Message):
         if self.check_yourself(message) == 1 : ## Check yourself is receiver 
-            if message.message_type == Message.READ:    
+            if message.message_type == MessageType.READ:    
                 ## Read file request of sender
                 file_content = self.read_file(self.pid)
                 ## Send respond for sender
-                self.send_SES_message(message.sender, file_content, -Message.READ)
-            elif message.message_type == -Message.READ:
+                self.send_SES_message(message.sender, file_content, -MessageType.READ)
+            elif message.message_type == -MessageType.READ:
                 ## sender receive respond_receiver and print content of file
                 print(f"Received file from {message.sender}")
                 print("Content:")
@@ -134,19 +112,19 @@ class YFS:
 
         if command_read in user_command :
             print("Send read file successfully")
-            self.send_SES_message(recive, message, Message.WRITE)
+            self.send_SES_message(recive, message, MessageType.WRITE)
         else:
             print("Wrong commad")
 
     def receive_write(self, message: Message):
         if  self.check_yourself(message) == 1 : ## Check yourself is receiver 
-            if message.message_type == Message.WRITE:
+            if message.message_type == MessageType.WRITE:
                 ## need except handler here
                 self.write_file(self.pid, message.message)
                 message_response = "Write file successfully"
                 ## Send respond for sender
-                self.send_SES_message(message.sender,message_response, -Message.WRITE)
-            elif message.message_type == - Message.WRITE:
+                self.send_SES_message(message.sender,message_response, -MessageType.WRITE)
+            elif message.message_type == - MessageType.WRITE:
                 ## sender receive respond_receiver and print content of file
                 print(message.message)
         elif self.check_yourself(message) == 2: ## Check yourself is guest
@@ -165,13 +143,13 @@ class YFS:
                 self.receive_SES_message(message)
             else:
                 #to-do: receive message response
-                if message.message_type == -Message.READ:
+                if message.message_type == -MessageType.READ:
                     self.receive_read(message)
-                if message.message_type == -Message.WRITE:
+                if message.message_type == -MessageType.WRITE:
                     self.receive_write(message)
-                if message.message_type == -Message.GET:
+                if message.message_type == -MessageType.GET:
                     pass
-                if message.message_type == -Message.BROADCAST:
+                if message.message_type == -MessageType.BROADCAST:
                     pass
             #
             # if client_request == "list_files":
@@ -215,9 +193,9 @@ class YFS:
         try:
             with open(file_path, "w") as file:
                 file.write(message + "\n") 
-            self.logger.log(Message.WRITE, "Write file successsfully.")
+            self.logger.log(MessageType.WRITE, "Write file successsfully.")
         except IOError:
-            self.logger.log(Message.WRITE, "Error: Can not write file.")
+            self.logger.log(MessageType.WRITE, "Error: Can not write file.")
 
     def check_yourself(self, message: Message):
         if self.pid == message.sender:
