@@ -1,6 +1,6 @@
 import json
 
-class Message:
+class MessageType:
     #use negative one for response
     BROADCAST = 1
     GET = 2
@@ -8,8 +8,9 @@ class Message:
     WRITE = 5
     START_WRITING = 6
     END_WRITING = 7
-    
 
+
+class Message:
     @classmethod
     def from_dict(cls, message):
         return Message(
@@ -35,21 +36,3 @@ class Message:
 
     def __str__(self) -> str:
         return json.dumps(self.__dict__)
-    
-if __name__ == "__main__":
-    #how to use :))))
-
-    #p1:
-    p1_tp = [1, 0]
-    p1_vp = {}
-    m1 = Message("p1", "p2", "hello", p1_tp, p1_vp, Message.BROADCAST)
-    #send
-    p1_vp[m1.receiver] = m1.timestamps
-    print(p1_vp)
-    #--------------------------------------#
-    p2_tp = [0, 0]
-    p2_vp = {}
-
-    m2 = str(m1)
-    m2 = Message.from_string(m2)
-    #compare m2.timestamp < m1.timestamp
