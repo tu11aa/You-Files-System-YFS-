@@ -1,0 +1,25 @@
+services:
+  yfs1:
+    image: python-yfs
+    networks:
+      - yfs
+    environment:
+      - PID=1
+
+  yfs2:
+    image: python-yfs
+    networks:
+      - yfs
+    environment:
+      - PID=2
+
+  yfs3:
+    image: python-yfs
+    networks:
+      - yfs
+    environment:
+      - PID=3
+
+networks:
+  yfs:
+    driver: bridge
