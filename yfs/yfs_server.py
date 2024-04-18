@@ -102,9 +102,10 @@ class YFS:
                 self.write_file(message.sender, message.message)
     
     def send_write(self, reciver: int, message: str):  
+        self.send_start_write()
+        self.logger.log(MessageType.START_WRITING,f"Sent successfully")
         self.send_SES_message(reciver, message, MessageType.WRITE)
-        print("Send read file successfully")
-
+        self.logger.log(MessageType.WRITE,f"Sent to {reciver} successfully")
 
     def receive_write(self, message: Message):
         if  self.check_yourself(message) == 1 : ## Check yourself is receiver 
@@ -114,29 +115,34 @@ class YFS:
                 message_response = "Write file successfully"
                 ## Send respond for sender
                 self.send_SES_message(message.sender,message_response, -MessageType.WRITE)
-            elif message.message_type == - MessageType.WRITE:
+                self.send_end_write(message.sender)
+            elif message.message_type == -MessageType.WRITE:
                 ## sender receive respond_receiver and print content of file
-                print(message.message)
-        elif self.check_yourself(message) == 2: ## Check yourself is guest
-            print("This file is an old version")
+                self.logger.log(-MessageType.WRITE, message.message)
 
-    def send_start_write(self, reciver: int):
-        message = "Start Write"
-        self.send_SES_message(reciver, message, MessageType.START_WRITING)
+    def send_start_write(self):
+        # send list peer_to_address - sender.
+        message = "Start Writing"
+        for i in self.peer_to_address:
+            self.send_SES_message(i, message, MessageType.START_WRITING)
     
     def receive_start_write(self, message: Message):
-        if self.check_yourself(message) == 2 or self.check_yourself(message) == 0: #check yourself is guest or sender
+        if self.check_yourself(message) == 2: #check yourself is guest
             if message.message_type == MessageType.START_WRITING:
-                print("This file is an old version")
+                self.logger.log(message.message_type,"This file is an old version")
 
-    def send_end_write(self, reciver: int):
+    def send_end_write(self, exclude: int):
+        # send list peer_to_address - sender.
         message = "End Write"
-        self.send_SES_message(reciver, message, MessageType.END_WRITING)
+        for i in self.peer_to_address:
+            if i != exclude:
+                self.send_SES_message(i, message, MessageType.END_WRITING)
 
     def receive_end_write(self, message: Message):
-        if self.check_yourself(message) == 2 or self.check_yourself(message) == 0: #check yourself is guest or sender
+        if self.check_yourself(message) == 2 : #check yourself is guest 
             if message.message_type == MessageType.END_WRITING:
-                print("Write file done")
+                self.send_read(message.sender)
+                self.logger.log(message.message_type, "Write file done")
 
     def serve(self):
         while True:
