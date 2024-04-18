@@ -7,6 +7,8 @@ class YFSLogger:
 
     @classmethod
     def command_as_string(self, command: int):
+        if command is None:
+            return ""
         if command < 0:
             response = "RESPONSE_"
         else:
@@ -26,7 +28,7 @@ class YFSLogger:
             result = "MOUNT"
         return response + result
 
-    def log(self, command, result):
+    def log(self, command: int, result):
         timestamp = datetime.now()
         message = f"{timestamp}: [{YFSLogger.command_as_string(command)}] {result}\n"
         print(message)

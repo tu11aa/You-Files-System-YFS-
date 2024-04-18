@@ -39,7 +39,7 @@ RUN adduser \
 #     python -m pip install -r requirements.txt
 
 # Switch to the non-privileged user to run the application.
-USER appuser
+USER root
 
 # Copy the source code into the container.
 COPY . .
@@ -50,4 +50,4 @@ COPY . .
 ARG PID
 # Run the application.
 # CMD python3 yfs/yfs_server.py
-CMD python3 test.py ${PID}
+CMD sleep infinity

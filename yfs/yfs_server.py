@@ -31,10 +31,12 @@ class YFS:
 
         self.receiver = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.receiver.bind((YFS.HOST, YFS.PORT))
-        # self.receiver.listen(5)
+        self.logger.log(None, f"YFS server PID {self.pid} started on port {YFS.PORT}")
 
         self.sender = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sender.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        self.send_broadcast()
 
     def read(self, filename):
         pid = int(filename[4:].replace(".txt", ""))
@@ -59,14 +61,22 @@ class YFS:
         message = Message(self.pid, receiver, message, self.timestamps, self.vp, message_type)
         if (message_type == MessageType.BROADCAST):
             address = ('<broadcast>', YFS.PORT)
+        else:
+            try:
+                address = (self.peer_to_address[receiver], YFS.PORT)
+            except KeyError:
+                self.logger.log(message_type, f"Not mount to YFS{receiver} yet")
+                return
+        self.sender.sendto(str(message).encode(), address)
+
+        if (message_type == MessageType.BROADCAST):
             self.logger.log(message_type, f"Sent broadcast message")
         else:
-            address = (self.peer_to_address[receiver], YFS.PORT)
-        self.sender.sendto(str(message).encode(), address)
-        self.logger.log(message_type, f"Sent to {receiver} successfully")
+            self.logger.log(message_type, f"Sent to {receiver} successfully")
 
         #continue update
-        self.vp[receiver] = self.timestamps
+        if message_type != MessageType.BROADCAST:
+            self.vp[receiver] = self.timestamps
 
     def receive_SES_message(self, message: Message, address, queue_check = False):
         # self.logger.log(message.message_type, 0) # magic number for result
@@ -147,7 +157,7 @@ class YFS:
                 self.send_SES_message(message.sender, file_content, -MessageType.READ)
             elif message.message_type == -MessageType.READ:
                 ## sender receive respond_receiver and print content of file
-                self.logger.log(-MessageType.READ, f"Received file from {message.sender}")
+                self.logger.log(-MessageType.READ, f"Received File{message.sender} from {message.sender}")
                 self.logger.log(MessageType.READ, "Content:")
                 self.logger.log(MessageType.READ, message.message)
 
@@ -179,7 +189,7 @@ class YFS:
     def receive_start_write(self, message: Message):
         if self.__check_yourself(message) == 2: #check yourself is guest
             if message.message_type == MessageType.START_WRITING:
-                self.logger.log(message.message_type,"This file is an old version")
+                self.logger.log(message.message_type,f"Somebody start writing to File{message.sender}")
 
     def send_end_write(self, exclude: int):
         # send list peer_to_address - sender.
@@ -191,8 +201,8 @@ class YFS:
     def receive_end_write(self, message: Message):
         if self.__check_yourself(message) == 2 : #check yourself is guest 
             if message.message_type == MessageType.END_WRITING:
-                self.send_read(message.sender)
-                self.logger.log(message.message_type, "Write file done")
+                self.logger.log(message.message_type, f"File{message.sender} is old, updating ...")
+                self.send_mount(message.sender)
 
     def serve(self):
         while True:
@@ -219,7 +229,7 @@ class YFS:
         file_path = os.path.join(self.__main_dir, f'Peer{pID}', f'File{pID}.txt')
 
         try:
-            with open(file_path, "r") as file:
+            with open(file_path, "r") as file:          
                 file_content = file.read()
                 return file_content
         except FileNotFoundError:
