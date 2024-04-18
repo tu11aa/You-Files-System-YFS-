@@ -249,7 +249,6 @@ if __name__ == "__main__":
     print("3. Exit")
 
     pid = int(sys.argv[1])
-    #num_of_proccess = int(sys.argv[2])
     server = YFS(pid)
     
     server_thread = threading.Thread(target=server.serve)
