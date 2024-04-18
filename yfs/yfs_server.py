@@ -101,20 +101,10 @@ class YFS:
 
                 self.write_file(message.sender, message.message)
     
-    def send_write(self, recive: int, user_command: str):
-        command_read = "Write File" + str(recive) + " "
-        index = user_command.find(command_read)
-        message = ""
-        if index != -1:
-            message = user_command[index + len(command_read):]
-        else:
-            print("Wrong commad")
+    def send_write(self, recive: int, message: str):  
+        self.send_SES_message(recive, message, MessageType.WRITE)
+        print("Send read file successfully")
 
-        if command_read in user_command :
-            print("Send read file successfully")
-            self.send_SES_message(recive, message, MessageType.WRITE)
-        else:
-            print("Wrong commad")
 
     def receive_write(self, message: Message):
         if  self.check_yourself(message) == 1 : ## Check yourself is receiver 
@@ -129,6 +119,24 @@ class YFS:
                 print(message.message)
         elif self.check_yourself(message) == 2: ## Check yourself is guest
             print("This file is an old version")
+
+    def send_start_write(self, recive: int):
+        message = "Start Write"
+        self.send_SES_message(recive, message, MessageType.START_WRITING)
+    
+    def receive_start_write(self, message: Message):
+        if self.check_yourself(message) == 2 or self.check_yourself(message) == 0: #check yourself is guest or sender
+            if message.message_type == MessageType.START_WRITING:
+                print("This file is an old version")
+
+    def send_end_write(self, recive: int):
+        message = "End Write"
+        self.send_SES_message(recive, message, MessageType.END_WRITING)
+
+    def receive_end_write(self, message: Message):
+        if self.check_yourself(message) == 2 or self.check_yourself(message) == 0: #check yourself is guest or sender
+            if message.message_type == MessageType.END_WRITING:
+                print("Write file done")
 
     def serve(self):
         while True:
@@ -237,8 +245,8 @@ if __name__ == "__main__":
     print("3. Exit")
 
     pid = int(sys.argv[1])
-    num_of_proccess = int(sys.argv[2])
-    server = YFS(pid, num_of_proccess)
+    #num_of_proccess = int(sys.argv[2])
+    server = YFS(pid)
     
     server_thread = threading.Thread(target=server.serve)
     user_interface_thread = threading.Thread(target=user_interface, args=(server,))
