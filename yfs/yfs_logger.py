@@ -6,7 +6,7 @@ class YFSLogger:
         self.log_file = file_name
 
     @classmethod
-    def command_as_string(self, command):
+    def command_as_string(self, command: int):
         if command < 0:
             response = "RESPONSE_"
         else:
@@ -14,15 +14,15 @@ class YFSLogger:
         result = ""
         if command == MessageType.READ:
             result = "READ"
-        if command == MessageType.WRITE:
+        elif command == MessageType.WRITE:
             result = "WRITE"
-        if command == MessageType.BROADCAST:
+        elif command == MessageType.BROADCAST:
             result = "BROADCAST"
-        if command == MessageType.START_WRITING:
+        elif command == MessageType.START_WRITING:
             result = "START_WRITING"
-        if command == MessageType.END_WRITING:
+        elif command == MessageType.END_WRITING:
             result = "END_WRITING"
-        if command == MessageType.GET:
+        elif command == MessageType.GET:
             result = "GET"
         return response + result
 
