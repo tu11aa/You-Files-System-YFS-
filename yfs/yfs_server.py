@@ -231,13 +231,33 @@ def user_interface(yfs: YFS):
     while True:
         user_commands = input("Input command: ").split()
         command = user_commands[0].lower()
-        arg = user_commands[1]
+        arg = int(user_commands[1][-1])
+
         if command == "exit":
             return
+        
         if command == "write":
-            yfs.write_file(0, "test write file 0")
+            if len(user_commands) > 2:
+                content = user_commands[2]
+                yfs.write_file(arg, content)
+                #Error
+                #yfs.send_write(arg, content)
+                print("Send Write")
+            else:
+                print("Command is incorrect")
+
+        if command == "read":
+            #Error
+            #yfs.send_read(arg)
+            content = yfs.read_file(arg)
+            print("Content:", content)
         
 if __name__ == "__main__":
+    print("Menu:")
+    print("1. Read File + [pID]")
+    print("2. Write File + [pID] + [content]")
+    print("3. Exit")
+
     pid = int(sys.argv[1])
     num_of_proccess = int(sys.argv[2])
     server = YFS(pid, num_of_proccess)
