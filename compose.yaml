@@ -27,23 +27,23 @@ services:
     depends_on:
       - yfs1
 
-  yfs4:
-    image: python-yfs
-    networks:
-      - yfs
-    environment:
-      - PID=4
-    depends_on:
-      - yfs1
+  # yfs4:
+  #   image: python-yfs
+  #   networks:
+  #     - yfs
+  #   environment:
+  #     - PID=4
+  #   depends_on:
+  #     - yfs1
 
-  yfs5:
-    image: python-yfs
-    networks:
-      - yfs
-    environment:
-      - PID=5
-    depends_on:
-      - yfs1
+  # yfs5:
+  #   image: python-yfs
+  #   networks:
+  #     - yfs
+  #   environment:
+  #     - PID=5
+  #   depends_on:
+  #     - yfs1
 
 networks:
   yfs:

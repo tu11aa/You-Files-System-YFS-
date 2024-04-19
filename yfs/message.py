@@ -27,7 +27,7 @@ class Message:
     def from_string(cls, message):
         return Message.from_dict(json.loads(message))
 
-    def __init__(self, sender: int, receiver: int, message: str, timestamps: list, vp: dict, message_type: int, status: bool = True) -> None:
+    def __init__(self, sender: str, receiver: str, message: str, timestamps: dict, vp: dict, message_type: int, status: bool = True) -> None:
         self.sender = sender
         self.receiver = receiver
         self.message = message

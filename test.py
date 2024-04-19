@@ -1,12 +1,21 @@
 import sys
+import json
 
-if __name__ == "__main__":
-    pid = int(sys.argv[1])
+# if __name__ == "__main__":
+#     pid = int(sys.argv[1])
     
-    while True:
-        user_command = input("Input command")
+#     while True:
+#         user_command = input("Input command")
 
-        print(f"Command {user_command} from [PID {pid}]")
+#         print(f"Command {user_command} from [PID {pid}]")
 
-        if (user_command.lower() == "exit"):
-            break
+#         if (user_command.lower() == "exit"):
+#             break
+
+d = {"d":{}}
+d_str = json.dumps(d)
+d_encoded = d_str.encode()
+
+r_str = d_encoded.decode()
+r = json.loads(r_str)
+print(r)
