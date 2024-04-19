@@ -32,7 +32,7 @@ class YFS:
         self.pid = pid
         self.peer_to_address = {}
         self.vp = {}
-        self.timestamps = {self.pid:now()}
+        self.timestamps = {}
         self.queue = []
         self.__main_dir = self.get_main_dir()
         self.logger = YFSLogger()
@@ -65,7 +65,7 @@ class YFS:
 
     def send_SES_message(self, receiver: str, message: str, message_type: int, status: bool = True):
         #Update self
-        if message_type != MessageType.BROADCAST:
+        if message_type != MessageType.BROADCAST and message_type != -MessageType.BROADCAST:
             self.timestamps[self.pid] = now()
 
         message_obj = Message(self.pid, receiver, message, self.timestamps, self.vp, message_type, status)
@@ -85,7 +85,7 @@ class YFS:
             self.logger.log(message_type, f"Sent to {receiver}:{address} successfully")
 
         #continue update
-        if message_type != MessageType.BROADCAST:
+        if message_type != MessageType.BROADCAST and message_type != -MessageType.BROADCAST:
             self.vp[receiver] = self.timestamps
             self.logger.log(0, f"Updated in send {self.vp}", other="UPDATE_VP")
 
@@ -101,9 +101,10 @@ class YFS:
             else:
                 self.logger.log(message.message_type, f"Received from {message.sender}")
 
-            self.__update_timestamps(message.timestamps)
-            self.__update_vp(message.vp)
-            self.logger.log(0, f"Updated in receive {self.vp}", other="UPDATE_VP")
+            if message.message_type != MessageType.BROADCAST and message.message_type != -MessageType.BROADCAST:
+                self.__update_timestamps(message.timestamps)
+                self.__update_vp(message.vp)
+                self.logger.log(0, f"Updated in receive {self.vp}", other="UPDATE_VP")
 
             if message.message_type >= 0:
                 if message.message_type == MessageType.BROADCAST:
