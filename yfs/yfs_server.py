@@ -17,7 +17,7 @@ def is_lesser_vector(vector1: dict, vector2: dict):
     # So sánh độ dài của hai vector
     return length_vector1 <= length_vector2
 
-time_now = -1
+time_now = 0
 def now():
     # return datetime.now().timestamp()\
     global time_now
@@ -67,6 +67,7 @@ class YFS:
         #Update self
         if message_type != MessageType.BROADCAST and message_type != -MessageType.BROADCAST:
             self.timestamps[self.pid] = now()
+            self.logger.log(0, f"Updated in send {self.timestamps}", other="UPDATE_TIMESTAMPS")
 
         message_obj = Message(self.pid, receiver, message, self.timestamps, self.vp, message_type, status)
         if (message_type == MessageType.BROADCAST):
@@ -86,7 +87,7 @@ class YFS:
 
         #continue update
         if message_type != MessageType.BROADCAST and message_type != -MessageType.BROADCAST:
-            self.vp[receiver] = self.timestamps
+            self.vp[receiver] = self.timestamps.copy()
             self.logger.log(0, f"Updated in send {self.vp}", other="UPDATE_VP")
 
     def receive_SES_message(self, message: Message, address, queue_check = False, queue_index: int = -1):
@@ -94,7 +95,7 @@ class YFS:
         if message.message_type == MessageType.BROADCAST and self.__check_myself(message) == 0:
             return
         
-        if self.pid not in message.vp or is_lesser_vector(message.vp[self.pid], self.timestamps):
+        if self.pid not in message.vp or self.__compare_timestamps(message.vp[self.pid]):
             if queue_check:
                 self.logger.log(message.message_type, "Pushed out of queue")
                 self.queue.pop(queue_index)
@@ -103,6 +104,7 @@ class YFS:
 
             if message.message_type != MessageType.BROADCAST and message.message_type != -MessageType.BROADCAST:
                 self.__update_timestamps(message.timestamps)
+                self.logger.log(0, f"Updated in receive {self.timestamps}", other="UPDATE_TIMESTAMPS")
                 self.__update_vp(message.vp)
                 self.logger.log(0, f"Updated in receive {self.vp}", other="UPDATE_VP")
 
@@ -197,20 +199,18 @@ class YFS:
                     self.logger.log(-MessageType.READ, message.message, force_stdout= True)
     
     def send_write(self, reciver: str, message: str):  
-        self.send_start_write()
         self.send_SES_message(reciver, message, MessageType.WRITE)
 
     def receive_write(self, message: Message):
         if self.__check_myself(message) == 1 : ## Check yourself is receiver 
             if message.message_type == MessageType.WRITE:
-                ## need except handler here
+                self.send_start_write(f"{message.sender} Start writing {message.message} to File{self.pid}", exclude=message.sender)
                 status = self.write_file(self.pid, message.message)
                 if status:
-                    self.send_SES_message(message.sender, f"Wrote {message.message} to File{self.pid}", -MessageType.WRITE)
-                    self.send_end_write(message.sender)
+                    self.send_SES_message(message.sender, f"{message.sender} Wrote {message.message} to File{self.pid}", -MessageType.WRITE)
                 else:
                     self.send_SES_message(message.sender, self.read_file(self.pid), -MessageType.WRITE, status=False)
-                    self.send_end_write(message.sender)
+                self.send_end_write(f"{message.sender} End writing {message.message} to File{self.pid}", exclude=message.sender)
             elif message.message_type == -MessageType.WRITE:
                 ## sender receive respond_receiver and print content of file
                 if message.status:
@@ -219,26 +219,24 @@ class YFS:
                     self.write_file(message.sender, message.message)
                     self.logger.log(-MessageType.WRITE, f"Can not write to File{self.pid}. Reverted!", force_stdout=True)
 
-    def send_start_write(self):
+    def send_start_write(self, message: str, exclude: str):
         # send list peer_to_address - sender.
-        message = "Start Writing"
         for i in self.peer_to_address:
-            self.send_SES_message(i, message, MessageType.START_WRITING)
+            if i != self.pid and i != exclude:
+                self.send_SES_message(i, message, MessageType.START_WRITING)
     
     def receive_start_write(self, message: Message):
-        if self.__check_myself(message) == 2: #check yourself is guest
+        if self.__check_myself(message) == 1: #check yourself is receiver
             if message.message_type == MessageType.START_WRITING:
-                self.logger.log(message.message_type,f"Somebody start writing to File{message.sender}")
+                self.logger.log(message.message_type,f"Somebody start writing to File{message.sender}", force_stdout=True)
 
-    def send_end_write(self, exclude: str):
-        # send list peer_to_address - sender.
-        message = "End Write"
+    def send_end_write(self, message: str, exclude: str):
         for i in self.peer_to_address:
-            if i != exclude:
+            if i !=self.pid and i != exclude:
                 self.send_SES_message(i, message, MessageType.END_WRITING)
 
     def receive_end_write(self, message: Message):
-        if self.__check_myself(message) == 2 : #check yourself is guest 
+        if self.__check_myself(message) == 1 :
             if message.message_type == MessageType.END_WRITING:
                 self.logger.log(message.message_type, f"File{message.sender} is old, updating ...")
                 self.send_mount(message.sender)
@@ -248,8 +246,9 @@ class YFS:
             client_request, client_address = self.sock.recvfrom(1024)
             message = Message.from_string(client_request.decode())
             
-            t = threading.Thread(target=self.receive_SES_message, args=(message, client_address,))
-            t.start()
+            self.receive_SES_message(message, client_address)
+            # t = threading.Thread(target=self.receive_SES_message, args=(message, client_address,))
+            # t.start()
         
     def get_main_dir(self):
         try:
@@ -294,9 +293,23 @@ class YFS:
                 self.timestamps[pid] = timestamps[pid]
 
     def __update_vp(self, vp):
+        print(f"Other vp: {vp}")
         for pid in vp:
             if pid != self.pid:
-                self.vp[pid] = vp[pid]
+                for _pid in vp[pid]:
+                    if _pid in self.vp[pid]:
+                        if self.vp[pid][_pid] > vp[pid][_pid]:
+                            self.vp[pid][_pid] = vp[pid][_pid]
+                    else:
+                        self.vp[pid][_pid] = vp[pid][_pid]
+
+    def __compare_timestamps(self, timestamps: dict):
+        for timestamp, value in timestamps.items():
+            if timestamp not in self.timestamps:
+                return False
+            if self.timestamps[timestamp] < value:
+                return False
+        return True
 
     def __check_myself(self, message: Message):
         if self.pid == message.sender:
