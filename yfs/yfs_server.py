@@ -65,7 +65,7 @@ class YFS:
 
     def send_SES_message(self, receiver: str, message: str, message_type: int, status: bool = True):
         #Update self
-        if message_type != MessageType.BROADCAST and message_type != -MessageType.BROADCAST:
+        if message_type != MessageType.BROADCAST:
             self.timestamps[self.pid] = now()
             self.logger.log(0, f"Updated in send {self.timestamps}", other="UPDATE_TIMESTAMPS")
 
@@ -86,7 +86,7 @@ class YFS:
             self.logger.log(message_type, f"Sent to {receiver}:{address} successfully")
 
         #continue update
-        if message_type != MessageType.BROADCAST and message_type != -MessageType.BROADCAST:
+        if message_type != MessageType.BROADCAST:
             self.vp[receiver] = self.timestamps.copy()
             self.logger.log(0, f"Updated in send {self.vp}", other="UPDATE_VP")
 
@@ -102,7 +102,7 @@ class YFS:
             else:
                 self.logger.log(message.message_type, f"Received from {message.sender}")
 
-            if message.message_type != MessageType.BROADCAST and message.message_type != -MessageType.BROADCAST:
+            if message.message_type != MessageType.BROADCAST:
                 self.__update_timestamps(message.timestamps)
                 self.logger.log(0, f"Updated in receive {self.timestamps}", other="UPDATE_TIMESTAMPS")
                 self.__update_vp(message.vp)
@@ -116,11 +116,9 @@ class YFS:
                 elif message.message_type == MessageType.WRITE:
                     self.receive_write(message)
                 elif message.message_type == MessageType.MOUNT:
-                    self.receive_mount(message)
+                    self.receive_mount(message, address)
             else:
-                if message.message_type == -MessageType.BROADCAST:
-                    self.receive_broadcast(message, address)
-                elif message.message_type == -MessageType.READ:
+                if message.message_type == -MessageType.READ:
                     self.receive_read(message)
                 elif message.message_type == -MessageType.WRITE:
                     self.receive_write(message)
@@ -144,17 +142,16 @@ class YFS:
         if self.__check_myself(message) != 0:
             self.peer_to_address[message.sender] = address
             if message.message_type == MessageType.BROADCAST:
-                self.send_SES_message(message.sender, "", -MessageType.BROADCAST)
-                self.send_mount(message.sender)
-            elif message.message_type == -MessageType.BROADCAST:
                 self.send_mount(message.sender)
 
     def send_mount(self, reciver: str):
         self.send_SES_message(reciver, "", MessageType.MOUNT)
 
-    def receive_mount(self, message: Message):
+    def receive_mount(self, message: Message, address = None):
         if self.__check_myself(message) == 1 : ## Check yourself is receiver 
             if message.message_type == MessageType.MOUNT:    
+                if message.sender not in self.peer_to_address:
+                    self.peer_to_address[message.sender] = address
                 ## Read file request of sender
                 file_content = self.read_file(self.pid)
                 ## Send respond for sender
@@ -162,6 +159,9 @@ class YFS:
                     self.send_SES_message(message.sender, "File is not exist or can not read", -MessageType.MOUNT, status=False)
                 else:
                     self.send_SES_message(message.sender, file_content, -MessageType.MOUNT)
+
+                if message.sender not in self.peer_to_address:
+                    self.send_mount(message.sender)
             elif message.message_type == -MessageType.MOUNT:
                 ## sender receive respond_receiver and print content of file
                 self.logger.log(-MessageType.MOUNT, f"Received folder Peer{message.sender} from {message.sender}")
