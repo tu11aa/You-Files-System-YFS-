@@ -144,9 +144,6 @@ class YFS:
         if self.__check_myself(message) != 0:
             self.peer_to_address[message.sender] = address
             if message.message_type == MessageType.BROADCAST:
-                self.send_SES_message(message.sender, "", -MessageType.BROADCAST)
-                self.send_mount(message.sender)
-            elif message.message_type == -MessageType.BROADCAST:
                 self.send_mount(message.sender)
 
     def send_mount(self, reciver: str):
@@ -162,6 +159,8 @@ class YFS:
                     self.send_SES_message(message.sender, "File is not exist or can not read", -MessageType.MOUNT, status=False)
                 else:
                     self.send_SES_message(message.sender, file_content, -MessageType.MOUNT)
+                if message.sender not in self.peer_to_address:
+                    self.send_mount(message.sender)
             elif message.message_type == -MessageType.MOUNT:
                 ## sender receive respond_receiver and print content of file
                 self.logger.log(-MessageType.MOUNT, f"Received folder Peer{message.sender} from {message.sender}")
