@@ -150,6 +150,8 @@ class YFS:
     def receive_mount(self, message: Message, address = None):
         if self.__check_myself(message) == 1 : ## Check yourself is receiver 
             if message.message_type == MessageType.MOUNT:    
+                if message.sender not in self.peer_to_address:
+                    self.peer_to_address[message.sender] = address
                 ## Read file request of sender
                 file_content = self.read_file(self.pid)
                 ## Send respond for sender
@@ -159,7 +161,6 @@ class YFS:
                     self.send_SES_message(message.sender, file_content, -MessageType.MOUNT)
 
                 if message.sender not in self.peer_to_address:
-                    self.peer_to_address[message.sender] = address
                     self.send_mount(message.sender)
             elif message.message_type == -MessageType.MOUNT:
                 ## sender receive respond_receiver and print content of file

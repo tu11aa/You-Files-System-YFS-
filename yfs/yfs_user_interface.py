@@ -4,12 +4,13 @@ import sys
 from yfs_server import YFS
 
 def user_interface(yfs: YFS): 
-    print("Menu:")
-    print("1. Read [filename]")
-    print("2. Write [filename] + [content]")
-    print("3. Exit")
+    # print("Menu:")
+    # print("1. Read [filename]")
+    # print("2. Write [filename] + [content]")
+    # print("3. Exit")
     while True:
-        user_commands = input("Input command: ").split()
+        # user_commands = input("Input command: ").split()
+        user_commands = input().split()
         command = user_commands[0].lower()
 
         if command == "exit":
