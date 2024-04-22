@@ -161,7 +161,7 @@ class YFS:
                     self.send_SES_message(message.sender, file_content, -MessageType.MOUNT)
 
                 if message.sender not in self.peer_to_address:
-                    self.send_mount(message.se)
+                    self.send_mount(message.sender)
             elif message.message_type == -MessageType.MOUNT:
                 ## sender receive respond_receiver and print content of file
                 self.logger.log(-MessageType.MOUNT, f"Received folder Peer{message.sender} from {message.sender}")
