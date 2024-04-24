@@ -2,7 +2,6 @@ import os
 import socket
 from datetime import datetime
 import math
-import threading
 
 from message import Message, MessageType
 from yfs_logger import YFSLogger
@@ -61,6 +60,7 @@ class YFS:
             self.write_file(pid, message)
             self.send_end_write(self.pid)
         else:
+            self.write_file(pid, message)
             self.send_write(pid, message)
 
     def send_SES_message(self, receiver: str, message: str, message_type: int, status: bool = True):
@@ -115,6 +115,10 @@ class YFS:
                     self.receive_read(message)
                 elif message.message_type == MessageType.WRITE:
                     self.receive_write(message)
+                elif message.message_type == MessageType.START_WRITING:
+                    self.receive_start_write(message)
+                elif message.message_type == MessageType.END_WRITING:
+                    self.receive_end_write(message)
                 elif message.message_type == MessageType.MOUNT:
                     self.receive_mount(message, address)
             else:
@@ -145,10 +149,27 @@ class YFS:
                 self.send_mount(message.sender)
 
     def send_mount(self, reciver: str):
-        self.send_SES_message(reciver, "", MessageType.MOUNT)
+        file_content = self.read_file(self.pid)
+        ## Send respond for sender
+        if file_content is None:
+            self.send_SES_message(reciver, f"File{self.pid} is not exist or can not read", MessageType.MOUNT, False)
+        else:
+            self.send_SES_message(reciver, file_content, MessageType.MOUNT)
 
     def receive_mount(self, message: Message, address = None):
         if self.__check_myself(message) == 1 : ## Check yourself is receiver 
+            self.logger.log(message.message_type, f"Received folder Peer{message.sender} from {message.sender}")
+            peer_path = os.path.join(self.__main_dir, f"Peer{message.sender}")
+            if not os.path.exists(peer_path):
+                try:
+                    os.mkdir(peer_path)
+                except:
+                    self.logger.log(0, f"Can not create {peer_path}", other="Error")
+            if message.status:
+                self.write_file(message.sender, message.message)
+            else:
+                self.logger.log(message.message_type, message.message)
+
             if message.message_type == MessageType.MOUNT:    
                 if message.sender not in self.peer_to_address:
                     self.peer_to_address[message.sender] = address
@@ -156,23 +177,9 @@ class YFS:
                 file_content = self.read_file(self.pid)
                 ## Send respond for sender
                 if file_content is None:
-                    self.send_SES_message(message.sender, "File is not exist or can not read", -MessageType.MOUNT, status=False)
+                    self.send_SES_message(message.sender, f"File{self.pid}  is not exist or can not read", -MessageType.MOUNT, status=False)
                 else:
                     self.send_SES_message(message.sender, file_content, -MessageType.MOUNT)
-
-                if message.sender not in self.peer_to_address:
-                    self.send_mount(message.sender)
-            elif message.message_type == -MessageType.MOUNT:
-                ## sender receive respond_receiver and print content of file
-                self.logger.log(-MessageType.MOUNT, f"Received folder Peer{message.sender} from {message.sender}")
-                peer_path = os.path.join(self.__main_dir, f"Peer{message.sender}")
-                if not os.path.exists(peer_path):
-                    try:
-                        os.mkdir(peer_path)
-                    except:
-                        self.logger.log(0, f"Can not create {peer_path}", other="Error")
-                if message.status:
-                    self.write_file(message.sender, message.message)
 
     def send_read(self, receiver: str):
         self.send_SES_message(receiver, "", MessageType.READ)
@@ -293,15 +300,18 @@ class YFS:
                 self.timestamps[pid] = timestamps[pid]
 
     def __update_vp(self, vp):
-        print(f"Other vp: {vp}")
+        print(f"OTHER vp: {vp}")
         for pid in vp:
             if pid != self.pid:
-                for _pid in vp[pid]:
-                    if _pid in self.vp[pid]:
-                        if self.vp[pid][_pid] > vp[pid][_pid]:
+                if pid not in self.vp:
+                    self.vp[pid] = vp[pid].copy()
+                else:
+                    for _pid in vp[pid]:
+                        if _pid in self.vp[pid]:
+                            if self.vp[pid][_pid] < vp[pid][_pid]:
+                                self.vp[pid][_pid] = vp[pid][_pid]
+                        else:
                             self.vp[pid][_pid] = vp[pid][_pid]
-                    else:
-                        self.vp[pid][_pid] = vp[pid][_pid]
 
     def __compare_timestamps(self, timestamps: dict):
         for timestamp, value in timestamps.items():
