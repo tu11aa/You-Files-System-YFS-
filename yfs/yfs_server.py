@@ -2,7 +2,6 @@ import os
 import socket
 from datetime import datetime
 import math
-import threading
 
 from message import Message, MessageType
 from yfs_logger import YFSLogger
@@ -61,11 +60,12 @@ class YFS:
             self.write_file(pid, message)
             self.send_end_write(self.pid)
         else:
+            self.write_file(pid, message)
             self.send_write(pid, message)
 
-    def send_SES_message(self, receiver: str, message: str, message_type: int, status: bool = True):
+    def send_message(self, receiver: str, message: str, message_type: int, status: bool = True):
         #Update self
-        if message_type != MessageType.BROADCAST:
+        if self.__is_SES(message_type):
             self.timestamps[self.pid] = now()
             self.logger.log(0, f"Updated in send {self.timestamps}", other="UPDATE_TIMESTAMPS")
 
@@ -86,11 +86,11 @@ class YFS:
             self.logger.log(message_type, f"Sent to {receiver}:{address} successfully")
 
         #continue update
-        if message_type != MessageType.BROADCAST:
+        if  self.__is_SES(message_type):
             self.vp[receiver] = self.timestamps.copy()
             self.logger.log(0, f"Updated in send {self.vp}", other="UPDATE_VP")
 
-    def receive_SES_message(self, message: Message, address, queue_check = False, queue_index: int = -1):
+    def receive_message(self, message: Message, address, queue_check = False, queue_index: int = -1):
         # self.logger.log(message.message_type, 0) # magic number for result
         if message.message_type == MessageType.BROADCAST and self.__check_myself(message) == 0:
             return
@@ -102,7 +102,7 @@ class YFS:
             else:
                 self.logger.log(message.message_type, f"Received from {message.sender}")
 
-            if message.message_type != MessageType.BROADCAST:
+            if  self.__is_SES(message.message_type):
                 self.__update_timestamps(message.timestamps)
                 self.logger.log(0, f"Updated in receive {self.timestamps}", other="UPDATE_TIMESTAMPS")
                 self.__update_vp(message.vp)
@@ -115,6 +115,10 @@ class YFS:
                     self.receive_read(message)
                 elif message.message_type == MessageType.WRITE:
                     self.receive_write(message)
+                elif message.message_type == MessageType.END_WRITING:
+                    self.receive_end_write(message)
+                elif message.message_type == MessageType.START_WRITING:
+                    self.receive_start_write(message)
                 elif message.message_type == MessageType.MOUNT:
                     self.receive_mount(message, address)
             else:
@@ -133,10 +137,10 @@ class YFS:
         #check queue
         if not queue_check:
             for i, m in enumerate(self.queue):
-                self.receive_SES_message(m, address, queue_check = True, queue_index = i)
+                self.receive_message(m, address, queue_check = True, queue_index = i)
 
     def send_broadcast(self):
-        self.send_SES_message(-1, "", MessageType.BROADCAST)
+        self.send_message(-1, "", MessageType.BROADCAST)
 
     def receive_broadcast(self, message: Message, address):
         if self.__check_myself(message) != 0:
@@ -144,38 +148,46 @@ class YFS:
             if message.message_type == MessageType.BROADCAST:
                 self.send_mount(message.sender)
 
-    def send_mount(self, reciver: str):
-        self.send_SES_message(reciver, "", MessageType.MOUNT)
+    def send_mount(self, receiver: str):
+        file_content = self.read_file(self.pid)
+        if file_content != None:
+            self.send_message(receiver, file_content, MessageType.MOUNT)
+        else:
+            self.send_message(receiver, f"File{self.pid} is not exist or can not read", MessageType.MOUNT, False)
 
     def receive_mount(self, message: Message, address = None):
         if self.__check_myself(message) == 1 : ## Check yourself is receiver 
-            if message.message_type == MessageType.MOUNT:    
-                if message.sender not in self.peer_to_address:
-                    self.peer_to_address[message.sender] = address
-                ## Read file request of sender
-                file_content = self.read_file(self.pid)
-                ## Send respond for sender
-                if file_content is None:
-                    self.send_SES_message(message.sender, "File is not exist or can not read", -MessageType.MOUNT, status=False)
-                else:
-                    self.send_SES_message(message.sender, file_content, -MessageType.MOUNT)
-
-                if message.sender not in self.peer_to_address:
-                    self.send_mount(message.sender)
-            elif message.message_type == -MessageType.MOUNT:
-                ## sender receive respond_receiver and print content of file
-                self.logger.log(-MessageType.MOUNT, f"Received folder Peer{message.sender} from {message.sender}")
+            def update_folder():
+                #Create Dir if not exists
+                self.logger.log(MessageType.MOUNT, f"Received folder Peer{message.sender} from {message.sender}")
                 peer_path = os.path.join(self.__main_dir, f"Peer{message.sender}")
                 if not os.path.exists(peer_path):
                     try:
                         os.mkdir(peer_path)
                     except:
                         self.logger.log(0, f"Can not create {peer_path}", other="Error")
+                #write file
                 if message.status:
                     self.write_file(message.sender, message.message)
+                else:
+                    self.logger.log(0, message.message, other="INFO")
+
+            if message.message_type == MessageType.MOUNT:
+                self.peer_to_address[message.sender] = address
+                update_folder()
+                ## Read file request of sender
+                file_content = self.read_file(self.pid)
+                ## Send respond for sender
+                if file_content is None:
+                    self.send_message(message.sender, f"File{self.pid} is not exist or can not read", -MessageType.MOUNT, status=False)
+                else:
+                    self.send_message(message.sender, file_content, -MessageType.MOUNT)
+            elif message.message_type == -MessageType.MOUNT:
+                ## sender receive respond_receiver and print content of file
+                update_folder()
 
     def send_read(self, receiver: str):
-        self.send_SES_message(receiver, "", MessageType.READ)
+        self.send_message(receiver, "", MessageType.READ)
 
     def receive_read(self, message: Message):
         if self.__check_myself(message) == 1 : ## Check yourself is receiver 
@@ -184,9 +196,9 @@ class YFS:
                 file_content = self.read_file(self.pid)
                 ## Send respond for sender
                 if file_content is None:
-                    self.send_SES_message(message.sender, "File is not exist or can not read", -MessageType.READ, status=False)
+                    self.send_message(message.sender, "File is not exist or can not read", -MessageType.READ, status=False)
                 else:
-                    self.send_SES_message(message.sender, file_content, -MessageType.READ)
+                    self.send_message(message.sender, file_content, -MessageType.READ)
             elif message.message_type == -MessageType.READ:
                 ## sender receive respond_receiver and print content of file
                 if not message.status:
@@ -199,7 +211,7 @@ class YFS:
                     self.logger.log(-MessageType.READ, message.message, force_stdout= True)
     
     def send_write(self, reciver: str, message: str):  
-        self.send_SES_message(reciver, message, MessageType.WRITE)
+        self.send_message(reciver, message, MessageType.WRITE)
 
     def receive_write(self, message: Message):
         if self.__check_myself(message) == 1 : ## Check yourself is receiver 
@@ -207,10 +219,11 @@ class YFS:
                 self.send_start_write(f"{message.sender} Start writing {message.message} to File{self.pid}", exclude=message.sender)
                 status = self.write_file(self.pid, message.message)
                 if status:
-                    self.send_SES_message(message.sender, f"{message.sender} Wrote {message.message} to File{self.pid}", -MessageType.WRITE)
+                    self.send_message(message.sender, f"{message.sender} Wrote {message.message} to File{self.pid}", -MessageType.WRITE)
+                    self.send_end_write(message.message, exclude=message.sender)
                 else:
-                    self.send_SES_message(message.sender, self.read_file(self.pid), -MessageType.WRITE, status=False)
-                self.send_end_write(f"{message.sender} End writing {message.message} to File{self.pid}", exclude=message.sender)
+                    self.send_message(message.sender, self.read_file(self.pid), -MessageType.WRITE, status=False)
+                    self.send_end_write(f"Fail to write {message.message} to File{self.pid}", message.sender, status=False)
             elif message.message_type == -MessageType.WRITE:
                 ## sender receive respond_receiver and print content of file
                 if message.status:
@@ -223,30 +236,40 @@ class YFS:
         # send list peer_to_address - sender.
         for i in self.peer_to_address:
             if i != self.pid and i != exclude:
-                self.send_SES_message(i, message, MessageType.START_WRITING)
+                self.send_message(i, message, MessageType.START_WRITING)
     
     def receive_start_write(self, message: Message):
         if self.__check_myself(message) == 1: #check yourself is receiver
             if message.message_type == MessageType.START_WRITING:
                 self.logger.log(message.message_type,f"Somebody start writing to File{message.sender}", force_stdout=True)
 
-    def send_end_write(self, message: str, exclude: str):
+    def send_end_write(self, message: str, exclude: str, status = True):
         for i in self.peer_to_address:
             if i !=self.pid and i != exclude:
-                self.send_SES_message(i, message, MessageType.END_WRITING)
+                self.send_message(i, message, MessageType.END_WRITING, status)
 
     def receive_end_write(self, message: Message):
+        print(-2)
         if self.__check_myself(message) == 1 :
+            print(-1)
             if message.message_type == MessageType.END_WRITING:
-                self.logger.log(message.message_type, f"File{message.sender} is old, updating ...")
-                self.send_mount(message.sender)
+                print(0)
+                if message.status:
+                    print(1)
+                    self.logger.log(message.message_type, f"File{message.sender} is old, updating ...")
+                    self.write_file(message.sender, message.message)
+                else:
+                    print(2)
+                    self.logger.log(message.message_type, message.message)
+                
 
     def serve(self):
+        self.logger.log(-1, "Start YFS server", "SERVE", force_stdout=True)
         while True:
             client_request, client_address = self.sock.recvfrom(1024)
             message = Message.from_string(client_request.decode())
             
-            self.receive_SES_message(message, client_address)
+            self.receive_message(message, client_address)
             # t = threading.Thread(target=self.receive_SES_message, args=(message, client_address,))
             # t.start()
         
@@ -287,21 +310,25 @@ class YFS:
             return None
 
     def __update_timestamps(self, timestamps):
+        print(f"OTHER timestamp: {timestamps}")
         self.timestamps[self.pid] = now()
         for pid in timestamps:
             if pid != self.pid:
                 self.timestamps[pid] = timestamps[pid]
 
     def __update_vp(self, vp):
-        print(f"Other vp: {vp}")
+        print(f"OTHER vp: {vp}")
         for pid in vp:
             if pid != self.pid:
-                for _pid in vp[pid]:
-                    if _pid in self.vp[pid]:
-                        if self.vp[pid][_pid] > vp[pid][_pid]:
+                if pid not in self.vp:
+                    self.vp[pid] = vp[pid].copy()
+                else:
+                    for _pid in vp[pid]:
+                        if _pid in self.vp[pid]:
+                            if self.vp[pid][_pid] < vp[pid][_pid]:
+                                self.vp[pid][_pid] = vp[pid][_pid]
+                        else:
                             self.vp[pid][_pid] = vp[pid][_pid]
-                    else:
-                        self.vp[pid][_pid] = vp[pid][_pid]
 
     def __compare_timestamps(self, timestamps: dict):
         for timestamp, value in timestamps.items():
@@ -318,3 +345,6 @@ class YFS:
             return 1
         else:
             return 2
+        
+    def __is_SES(self, message_type):
+        return abs(message_type) == MessageType.READ or abs(message_type) == MessageType.WRITE 
