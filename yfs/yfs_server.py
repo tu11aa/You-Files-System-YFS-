@@ -215,9 +215,10 @@ class YFS:
                 status = self.write_file(self.pid, message.message)
                 if status:
                     self.send_SES_message(message.sender, f"{message.sender} Wrote {message.message} to File{self.pid}", -MessageType.WRITE)
+                    self.send_end_write(message.message, exclude=message.sender)
                 else:
                     self.send_SES_message(message.sender, self.read_file(self.pid), -MessageType.WRITE, status=False)
-                self.send_end_write(f"{message.sender} End writing {message.message} to File{self.pid}", exclude=message.sender)
+                    self.send_end_write("", exclude=message.sender, status=False)
             elif message.message_type == -MessageType.WRITE:
                 ## sender receive respond_receiver and print content of file
                 if message.status:
@@ -237,16 +238,17 @@ class YFS:
             if message.message_type == MessageType.START_WRITING:
                 self.logger.log(message.message_type,f"Somebody start writing to File{message.sender}", force_stdout=True)
 
-    def send_end_write(self, message: str, exclude: str):
+    def send_end_write(self, message: str, exclude: str, status=True):
         for i in self.peer_to_address:
             if i !=self.pid and i != exclude:
-                self.send_SES_message(i, message, MessageType.END_WRITING)
+                self.send_SES_message(i, message, MessageType.END_WRITING, status)
 
     def receive_end_write(self, message: Message):
         if self.__check_myself(message) == 1 :
             if message.message_type == MessageType.END_WRITING:
-                self.logger.log(message.message_type, f"File{message.sender} is old, updating ...")
-                self.send_mount(message.sender)
+                self.logger.log(message.message_type, f"Updating File{message.sender} ...")
+                if message.status:
+                    self.write_file(message.message, message.sender)
 
     def serve(self):
         while True:
