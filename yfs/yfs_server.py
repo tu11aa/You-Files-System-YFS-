@@ -328,6 +328,15 @@ class YFS:
                                 self.vp[pid][_pid] = vp[pid][_pid]
                         else:
                             self.vp[pid][_pid] = vp[pid][_pid]
+                if pid not in self.vp:
+                    self.vp[pid] = vp[pid].copy()
+                else:
+                    for _pid in vp[pid]:
+                        if _pid in self.vp[pid]:
+                            if self.vp[pid][_pid] < vp[pid][_pid]:
+                                self.vp[pid][_pid] = vp[pid][_pid]
+                        else:
+                            self.vp[pid][_pid] = vp[pid][_pid]
 
     def __compare_timestamps(self, timestamps: dict):
         for timestamp, value in timestamps.items():
