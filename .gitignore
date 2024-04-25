@@ -154,3 +154,5 @@ cython_debug/
 
 # User
 yfs/Dir*
+Dirs/*
+Logs/*

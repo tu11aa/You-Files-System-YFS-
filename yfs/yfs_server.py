@@ -34,7 +34,7 @@ class YFS:
         self.timestamps = {}
         self.queue = []
         self.__main_dir = self.get_main_dir()
-        self.logger = YFSLogger()
+        self.logger = YFSLogger(f"./Logs/log{self.pid}.log", debugging=False)
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -45,29 +45,33 @@ class YFS:
 
     def read(self, filename):
         pid = filename[4:].replace(".txt", "")
+        if not pid.isnumeric():
+            self.logger.log(MessageType.READ, f"Can not read {filename}")
+            return None
         if pid == self.pid:
             return self.read_file(pid)
         else:
-            if os.path.exists(os.path.join(self.__main_dir, f"Peer{pid}", f"File{pid}.txt")):
-                return self.read_file(pid)
-            else:
+            # if os.path.exists(os.path.join(self.__main_dir, f"Peer{pid}", f"File{pid}.txt")):
+            #     return self.read_file(pid)
+            # else:
                 self.send_read(pid)
                 return None
 
     def write(self, filename, message):
         pid = filename[4:].replace(".txt", "")
         if pid == self.pid:
-            self.write_file(pid, message)
-            self.send_end_write(self.pid)
+            self.send_start_write(f"{pid} Start writing to File{pid}", pid)
+            status = self.write_file(pid, message)
+            if status is not None:
+                self.send_end_write(message, self.pid)
         else:
-            self.write_file(pid, message)
             self.send_write(pid, message)
 
     def send_message(self, receiver: str, message: str, message_type: int, status: bool = True):
         #Update self
         if self.__is_SES(message_type):
             self.timestamps[self.pid] = now()
-            self.logger.log(0, f"Updated in send {self.timestamps}", other="UPDATE_TIMESTAMPS")
+            self.logger.log(message_type, f"Updated timestamp: {self.timestamps}", force_stdout=True)
 
         message_obj = Message(self.pid, receiver, message, self.timestamps, self.vp, message_type, status)
         if (message_type == MessageType.BROADCAST):
@@ -81,14 +85,14 @@ class YFS:
         self.sock.sendto(str(message_obj).encode(), address)
 
         if (message_type == MessageType.BROADCAST):
-            self.logger.log(message_type, f"Sent broadcast message")
+            self.logger.log(message_type, f"Sent broadcast message", force_stdout=True)
         else:
-            self.logger.log(message_type, f"Sent to {receiver}:{address} successfully")
+            self.logger.log(message_type, f"Sent to {receiver}:{address} successfully", force_stdout=True)
 
         #continue update
         if  self.__is_SES(message_type):
             self.vp[receiver] = self.timestamps.copy()
-            self.logger.log(0, f"Updated in send {self.vp}", other="UPDATE_VP")
+            self.logger.log(message_type, f"Updated vp: {self.vp}", force_stdout=True)
 
     def receive_message(self, message: Message, address, queue_check = False, queue_index: int = -1):
         # self.logger.log(message.message_type, 0) # magic number for result
@@ -97,16 +101,16 @@ class YFS:
         
         if self.pid not in message.vp or self.__compare_timestamps(message.vp[self.pid]):
             if queue_check:
-                self.logger.log(message.message_type, "Pushed out of queue")
+                self.logger.log(message.message_type, "Pushed out of queue", force_stdout=True)
                 self.queue.pop(queue_index)
             else:
-                self.logger.log(message.message_type, f"Received from {message.sender}")
+                self.logger.log(message.message_type, f"Received from {message.sender}", force_stdout=True)
 
             if  self.__is_SES(message.message_type):
                 self.__update_timestamps(message.timestamps)
-                self.logger.log(0, f"Updated in receive {self.timestamps}", other="UPDATE_TIMESTAMPS")
+                self.logger.log(message.message_type, f"Updated timestamp: {self.timestamps}", force_stdout=True)
                 self.__update_vp(message.vp)
-                self.logger.log(0, f"Updated in receive {self.vp}", other="UPDATE_VP")
+                self.logger.log(message.message_type, f"Updated vp: {self.vp}", force_stdout=True)
 
             if message.message_type >= 0:
                 if message.message_type == MessageType.BROADCAST:
@@ -130,7 +134,7 @@ class YFS:
                     self.receive_mount(message)
 
         elif not queue_check:
-            self.logger.log(message.message_type, f"Added message from {message.sender} to QUEUE")
+            self.logger.log(message.message_type, f"Added message from {message.sender} to QUEUE", force_stdout=True)
             self.queue.append(message)
             queue_check = True
 
@@ -159,7 +163,7 @@ class YFS:
         if self.__check_myself(message) == 1 : ## Check yourself is receiver 
             def update_folder():
                 #Create Dir if not exists
-                self.logger.log(MessageType.MOUNT, f"Received folder Peer{message.sender} from {message.sender}")
+                self.logger.log(MessageType.MOUNT, f"Received folder Peer{message.sender} from {message.sender}", force_stdout=True)
                 peer_path = os.path.join(self.__main_dir, f"Peer{message.sender}")
                 if not os.path.exists(peer_path):
                     try:
@@ -196,13 +200,13 @@ class YFS:
                 file_content = self.read_file(self.pid)
                 ## Send respond for sender
                 if file_content is None:
-                    self.send_message(message.sender, "File is not exist or can not read", -MessageType.READ, status=False)
+                    self.send_message(message.sender, f"File{self.pid} is not exist or can not read", -MessageType.READ, status=False)
                 else:
                     self.send_message(message.sender, file_content, -MessageType.READ)
             elif message.message_type == -MessageType.READ:
                 ## sender receive respond_receiver and print content of file
                 if not message.status:
-                    self.logger.log(-MessageType.READ, f"Got error '{message.message}' while reading File{message.sender}.txt")
+                    self.logger.log(-MessageType.READ, f"Got error '{message.message}' while reading File{message.sender}", force_stdout=True)
                 else:
                     self.write_file(message.sender, message.message)
 
@@ -216,10 +220,10 @@ class YFS:
     def receive_write(self, message: Message):
         if self.__check_myself(message) == 1 : ## Check yourself is receiver 
             if message.message_type == MessageType.WRITE:
-                self.send_start_write(f"{message.sender} Start writing {message.message} to File{self.pid}", exclude=message.sender)
+                self.send_start_write(f"{message.sender} Start writing to File{self.pid}", exclude=message.sender)
                 status = self.write_file(self.pid, message.message)
                 if status:
-                    self.send_message(message.sender, f"{message.sender} Wrote {message.message} to File{self.pid}", -MessageType.WRITE)
+                    self.send_message(message.sender, message.message, -MessageType.WRITE)
                     self.send_end_write(message.message, exclude=message.sender)
                 else:
                     self.send_message(message.sender, self.read_file(self.pid), -MessageType.WRITE, status=False)
@@ -227,10 +231,9 @@ class YFS:
             elif message.message_type == -MessageType.WRITE:
                 ## sender receive respond_receiver and print content of file
                 if message.status:
-                    self.logger.log(-MessageType.WRITE, message.message, force_stdout=True)
-                else:
                     self.write_file(message.sender, message.message)
-                    self.logger.log(-MessageType.WRITE, f"Can not write to File{self.pid}. Reverted!", force_stdout=True)
+                else:
+                    self.logger.log(-MessageType.WRITE, f"Can not write to File{message.sender}. Reverted!", force_stdout=True)
 
     def send_start_write(self, message: str, exclude: str):
         # send list peer_to_address - sender.
@@ -241,7 +244,7 @@ class YFS:
     def receive_start_write(self, message: Message):
         if self.__check_myself(message) == 1: #check yourself is receiver
             if message.message_type == MessageType.START_WRITING:
-                self.logger.log(message.message_type,f"Somebody start writing to File{message.sender}", force_stdout=True)
+                self.logger.log(message.message_type, message.message, force_stdout=True)
 
     def send_end_write(self, message: str, exclude: str, status = True):
         for i in self.peer_to_address:
@@ -249,18 +252,13 @@ class YFS:
                 self.send_message(i, message, MessageType.END_WRITING, status)
 
     def receive_end_write(self, message: Message):
-        print(-2)
         if self.__check_myself(message) == 1 :
-            print(-1)
             if message.message_type == MessageType.END_WRITING:
-                print(0)
                 if message.status:
-                    print(1)
-                    self.logger.log(message.message_type, f"File{message.sender} is old, updating ...")
+                    self.logger.log(message.message_type, f"File{message.sender} is old, updating ...", force_stdout=True)
                     self.write_file(message.sender, message.message)
                 else:
-                    print(2)
-                    self.logger.log(message.message_type, message.message)
+                    self.logger.log(message.message_type, message.message, force_stdout=True)
                 
 
     def serve(self):
@@ -278,10 +276,11 @@ class YFS:
             return self.__main_dir
         except AttributeError:
             main_path = os.path.join(os.curdir, f"Dir{self.pid}")
+            peer_path = os.path.join(main_path, f"Peer{self.pid}")
             if not os.path.exists(main_path):
                 os.mkdir(main_path)
-                os.mkdir(os.path.join(main_path, f"Peer{self.pid}"))
-                # open(os.path.join(main_path, f"Peer{self.pid}", f"File{self.pid}.txt"), "a")
+            if not os.path.exists(peer_path):
+                os.mkdir(peer_path)
 
             self.__main_dir = main_path
             return self.__main_dir
@@ -294,7 +293,7 @@ class YFS:
                 file_content = file.read()
                 return file_content
         except FileNotFoundError:
-            self.logger.log(0, "File is not exist or can not read", other="READFILE", force_stdout=True)
+            self.logger.log(0, f"File{pID} is not exist or can not read", other="READFILE", force_stdout=True)
             return None
     
     def write_file(self, pID: int, message: str):
@@ -310,14 +309,14 @@ class YFS:
             return None
 
     def __update_timestamps(self, timestamps):
-        print(f"OTHER timestamp: {timestamps}")
+        self.logger.log(-1, f"{timestamps}", "OTHER TIMESTAMP")
         self.timestamps[self.pid] = now()
         for pid in timestamps:
             if pid != self.pid:
                 self.timestamps[pid] = timestamps[pid]
 
     def __update_vp(self, vp):
-        print(f"OTHER vp: {vp}")
+        self.logger.log(-1, f"{vp}", "OTHER VP")
         for pid in vp:
             if pid != self.pid:
                 if pid not in self.vp:

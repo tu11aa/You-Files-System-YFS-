@@ -8,6 +8,13 @@ services:
       - yfs
     environment:
       - PID=1
+    volumes:
+      - type: bind
+        source: ./Dirs/Dir1
+        target: /app/yfs/Dir1
+      - type: bind
+        source: ./Logs
+        target: /app/yfs/Logs
 
   yfs2:
     image: python-yfs
@@ -17,6 +24,13 @@ services:
       - PID=2
     depends_on:
       - yfs1
+    volumes:
+      - type: bind
+        source: ./Dirs/Dir2
+        target: /app/yfs/Dir2
+      - type: bind
+        source: ./Logs
+        target: /app/yfs/Logs
 
   yfs3:
     image: python-yfs
@@ -26,24 +40,45 @@ services:
       - PID=3
     depends_on:
       - yfs1
+    volumes:
+      - type: bind
+        source: ./Dirs/Dir3
+        target: /app/yfs/Dir3
+      - type: bind
+        source: ./Logs
+        target: /app/yfs/Logs
 
-  # yfs4:
-  #   image: python-yfs
-  #   networks:
-  #     - yfs
-  #   environment:
-  #     - PID=4
-  #   depends_on:
-  #     - yfs1
+  yfs4:
+    image: python-yfs
+    networks:
+      - yfs
+    environment:
+      - PID=4
+    depends_on:
+      - yfs1
+    volumes:
+      - type: bind
+        source: ./Dirs/Dir4
+        target: /app/yfs/Dir4
+      - type: bind
+        source: ./Logs
+        target: /app/yfs/Logs
 
-  # yfs5:
-  #   image: python-yfs
-  #   networks:
-  #     - yfs
-  #   environment:
-  #     - PID=5
-  #   depends_on:
-  #     - yfs1
+  yfs5:
+    image: python-yfs
+    networks:
+      - yfs
+    environment:
+      - PID=5
+    depends_on:
+      - yfs1
+    volumes:
+      - type: bind
+        source: ./Dirs/Dir5
+        target: /app/yfs/Dir5
+      - type: bind
+        source: ./Logs
+        target: /app/yfs/Logs
 
 networks:
   yfs:
