@@ -101,7 +101,7 @@ class YFS:
         if message.message_type == MessageType.BROADCAST and self.__check_myself(message) == 0:
             return
         
-        if self.pid not in message.vp or self.__compare_timestamps(message.vp[self.pid]):
+        if self.pid not in message.vp or self.__compare_timestamps(message.vp[self.pid]) or not self.__is_SES(message.message_type):
             if queue_check:
                 self.logger.log(message.message_type, "Pushed out of queue", force_stdout=True)
                 self.queue.pop(queue_index)
@@ -308,7 +308,7 @@ class YFS:
         self.logger.log(-1, f"{timestamps}", "OTHER TIMESTAMP")
         self.timestamps[self.pid] = now()
         for pid in timestamps:
-            if pid != self.pid:
+            if pid != self.pid and self.timestamps[pid] > timestamps[pid]:
                 self.timestamps[pid] = timestamps[pid]
 
     def __update_vp(self, vp):
@@ -326,6 +326,8 @@ class YFS:
                             self.vp[pid][_pid] = vp[pid][_pid]
 
     def __compare_timestamps(self, timestamps: dict):
+        self.logger.log(-1, f"{self.timestamps}", "MY TIMESTAMP")
+        self.logger.log(-1, f"{timestamps}", "OTHER TIMESTAMP")
         for timestamp, value in timestamps.items():
             if timestamp not in self.timestamps:
                 return False
@@ -343,4 +345,6 @@ class YFS:
         
     def __is_SES(self, message_type):
         true_type = abs(message_type)
-        return true_type == MessageType.READ or true_type == MessageType.WRITE
+        if true_type == MessageType.BROADCAST or true_type == MessageType.MOUNT:
+            return False
+        return True

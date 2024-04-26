@@ -20,5 +20,6 @@ if __name__ == "__main__":
     #to-do in future: need refine yfs server: remove userinterface function inside yfs server and move it to user_interface
     server_thread = threading.Thread(target=server.serve)
     user_interface_thread = threading.Thread(target=user_interface, args=(server,))
+    sleep(0.2 * int(pid))
     server_thread.start()
     user_interface_thread.start()
