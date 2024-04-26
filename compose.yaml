@@ -2,7 +2,7 @@ services:
   yfs1:
     build:
       context: .
-      dockerfile: Dockerfile_user
+      dockerfile: Dockerfile
     image: python-yfs
     networks:
       - yfs

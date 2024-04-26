@@ -49,5 +49,4 @@ COPY . .
 
 ARG PID
 # Run the application.
-CMD ./start_server.sh
-# CMD sleep infinity
+CMD ./start.sh

@@ -308,8 +308,12 @@ class YFS:
         self.logger.log(-1, f"{timestamps}", "OTHER TIMESTAMP")
         self.timestamps[self.pid] = now()
         for pid in timestamps:
-            if pid != self.pid and self.timestamps[pid] > timestamps[pid]:
-                self.timestamps[pid] = timestamps[pid]
+            if pid != self.pid:
+                if pid in self.timestamps:
+                    if self.timestamps[pid] < timestamps[pid]:
+                        self.timestamps[pid] = timestamps[pid]
+                else:
+                    self.timestamps[pid] = timestamps[pid]
 
     def __update_vp(self, vp):
         self.logger.log(-1, f"{vp}", "OTHER VP")
@@ -345,6 +349,4 @@ class YFS:
         
     def __is_SES(self, message_type):
         true_type = abs(message_type)
-        if true_type == MessageType.BROADCAST or true_type == MessageType.MOUNT:
-            return False
-        return True
+        return true_type == MessageType.READ or true_type == MessageType.WRITE
