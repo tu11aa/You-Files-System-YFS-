@@ -63,7 +63,7 @@ class YFS:
             self.send_start_write(f"{pid} Start writing to File{pid}", pid)
             status = self.write_file(pid, message)
             if status is not None:
-                self.send_end_write(message, self.pid)
+                self.send_end_write(message)
         else:
             self.send_write(pid, message)
 
@@ -223,17 +223,9 @@ class YFS:
                 self.send_start_write(f"{message.sender} Start writing to File{self.pid}", exclude=message.sender)
                 status = self.write_file(self.pid, message.message)
                 if status:
-                    self.send_message(message.sender, message.message, -MessageType.WRITE)
-                    self.send_end_write(message.message, exclude=message.sender)
+                    self.send_end_write(message.message)
                 else:
-                    self.send_message(message.sender, self.read_file(self.pid), -MessageType.WRITE, status=False)
-                    self.send_end_write(f"Fail to write {message.message} to File{self.pid}", message.sender, status=False)
-            elif message.message_type == -MessageType.WRITE:
-                ## sender receive respond_receiver and print content of file
-                if message.status:
-                    self.write_file(message.sender, message.message)
-                else:
-                    self.logger.log(-MessageType.WRITE, f"Can not write to File{message.sender}. Reverted!", force_stdout=True)
+                    self.send_end_write(f"Fail to write {message.message} to File{self.pid}", status=False)
 
     def send_start_write(self, message: str, exclude: str):
         # send list peer_to_address - sender.
@@ -246,16 +238,16 @@ class YFS:
             if message.message_type == MessageType.START_WRITING:
                 self.logger.log(message.message_type, message.message, force_stdout=True)
 
-    def send_end_write(self, message: str, exclude: str, status = True):
+    def send_end_write(self, message: str, status = True):
         for i in self.peer_to_address:
-            if i !=self.pid and i != exclude:
+            if i !=self.pid:
                 self.send_message(i, message, MessageType.END_WRITING, status)
 
     def receive_end_write(self, message: Message):
         if self.__check_myself(message) == 1 :
             if message.message_type == MessageType.END_WRITING:
                 if message.status:
-                    self.logger.log(message.message_type, f"File{message.sender} is old, updating ...", force_stdout=True)
+                    self.logger.log(message.message_type, f"Updating File{message.sender} ...", force_stdout=True)
                     self.write_file(message.sender, message.message)
                 else:
                     self.logger.log(message.message_type, message.message, force_stdout=True)
