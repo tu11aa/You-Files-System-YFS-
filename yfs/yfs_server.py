@@ -1,7 +1,7 @@
 import os
 import socket
-from datetime import datetime
 import math
+from time import sleep
 
 from message import Message, MessageType
 from yfs_logger import YFSLogger
@@ -34,7 +34,9 @@ class YFS:
         self.timestamps = {}
         self.queue = []
         self.__main_dir = self.get_main_dir()
-        self.logger = YFSLogger(f"./Logs/log{self.pid}.log", debugging=False)
+
+        debug = int(os.environ["DEBUG"])
+        self.logger = YFSLogger(f"./Logs/log{self.pid}.log", debugging=debug)
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -197,6 +199,8 @@ class YFS:
         if self.__check_myself(message) == 1 : ## Check yourself is receiver 
             if message.message_type == MessageType.READ:    
                 ## Read file request of sender
+                if (self.pid == "3"):
+                    sleep(0.5)
                 file_content = self.read_file(self.pid)
                 ## Send respond for sender
                 if file_content is None:
@@ -338,4 +342,5 @@ class YFS:
             return 2
         
     def __is_SES(self, message_type):
-        return abs(message_type) == MessageType.READ or abs(message_type) == MessageType.WRITE 
+        true_type = abs(message_type)
+        return true_type == MessageType.READ or true_type == MessageType.WRITE

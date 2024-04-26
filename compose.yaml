@@ -8,6 +8,7 @@ services:
       - yfs
     environment:
       - PID=1
+    env_file: .env
     volumes:
       - type: bind
         source: ./Dirs/Dir1
@@ -22,6 +23,7 @@ services:
       - yfs
     environment:
       - PID=2
+    env_file: .env
     depends_on:
       - yfs1
     volumes:
@@ -38,6 +40,7 @@ services:
       - yfs
     environment:
       - PID=3
+    env_file: .env
     depends_on:
       - yfs1
     volumes:
@@ -54,6 +57,7 @@ services:
       - yfs
     environment:
       - PID=4
+    env_file: .env
     depends_on:
       - yfs1
     volumes:
@@ -70,6 +74,7 @@ services:
       - yfs
     environment:
       - PID=5
+    env_file: .env
     depends_on:
       - yfs1
     volumes:
